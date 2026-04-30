@@ -118,3 +118,54 @@ class ApprovalWorkflowDefinitionResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# --- Bulk Operation Schemas ---
+
+class BulkApproveRequest(BaseModel):
+    """Schema for bulk approval request."""
+    approval_ids: list[UUID]
+    comment: Optional[str] = None
+    required_approvals: int = Field(default=2, ge=1)
+
+
+class BulkRejectRequest(BaseModel):
+    """Schema for bulk rejection request."""
+    approval_ids: list[UUID]
+    comment: str
+
+
+class EscalationRequest(BaseModel):
+    """Schema for escalation request."""
+    target_role: ApprovalRole
+    reason: Optional[str] = None
+
+
+class PendingApprovalCountResponse(BaseModel):
+    """Schema for pending approval count response."""
+    count: int
+
+
+class BulkApproveResponse(BaseModel):
+    """Response schema for bulk approval operation."""
+    approved_ids: list[str]
+    rejected_ids: list[str]
+    errors: list[dict]
+    total_processed: int
+    total_approved: int
+    total_rejected: int
+
+
+class BulkRejectResponse(BaseModel):
+    """Response schema for bulk rejection operation."""
+    rejected_ids: list[str]
+    errors: list[dict]
+    total_processed: int
+    total_rejected: int
+
+
+class TimeoutResultResponse(BaseModel):
+    """Response schema for timeout handling operation."""
+    expired_count: int
+    escalated_count: int
+    details: list[dict]

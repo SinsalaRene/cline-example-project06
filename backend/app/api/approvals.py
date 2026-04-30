@@ -16,7 +16,15 @@ from app.schemas.approval import (
     ApprovalRequestApprove,
     ApprovalRequestReject,
     ApprovalRequestResponse,
+    BulkApproveRequest,
+    BulkRejectRequest,
+    EscalationRequest,
+    PendingApprovalCountResponse,
+    BulkApproveResponse,
+    BulkRejectResponse,
+    TimeoutResultResponse,
 )
+from app.models.approval import ApprovalRole
 from app.services.approval_service import ApprovalService
 from app.services.audit_service import AuditService
 from app.models.approval import ChangeType, ApprovalStatus
@@ -190,6 +198,217 @@ async def add_comment(
     db: Session = Depends(get_db),
 ):
     """Add a comment to an approval request."""
+    from app.models.approval import ApprovalComment
+    from datetime import datetime, timezone
     comment = comment_data.get("comment", "")
-    # Implementation would add comment to the approval request
+    if not comment:
+        raise HTTPException(status_code=422, detail="Comment is required")
+    
+    approval_comment = ApprovalComment(
+        id=uuid4(),
+        approval_request_id=approval_id,
+        user_id=current_user.object_id,
+        comment=comment,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(approval_comment)
+    db.commit()
+    
     return {"message": "Comment added successfully"}
+
+
+@router.get(
+    "/{approval_id}/history",
+    response_model=dict,
+    summary="Get approval history",
+    description="Get full history of an approval request including comments and steps",
+)
+async def get_approval_history(
+    approval_id: UUID,
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(50, ge=1, le=100, description="Page size"),
+    current_user: UserInfo = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get full history of an approval request."""
+    from app.models.approval import ApprovalRequest, ApprovalStep, ApprovalComment
+    approval = db.query(ApprovalRequest).filter(ApprovalRequest.id == approval_id).first()
+    if not approval:
+        raise HTTPException(status_code=404, detail="Approval request not found")
+    
+    # Get approval steps
+    steps = db.query(ApprovalStep).filter(
+        ApprovalStep.approval_request_id == approval_id
+    ).all()
+    
+    # Get comments
+    comment_query = db.query(ApprovalComment).filter(
+        ApprovalComment.approval_request_id == approval_id
+    ).order_by(ApprovalComment.created_at.desc())
+    
+    # Paginate comments
+    total_comments = comment_query.count()
+    comments = comment_query.skip(max(0, page - 1) * page_size).limit(page_size).all()
+    
+    return {
+        "approval": approval,
+        "steps": steps,
+        "comments": {
+            "total": total_comments,
+            "page": page,
+            "page_size": page_size,
+            "items": comments,
+        }
+    }
+
+
+@router.post(
+    "/bulk/approve",
+    response_model=dict,
+    summary="Bulk approve",
+    description="Approve multiple approval requests in bulk",
+)
+async def bulk_approve(
+    bulk_data: BulkApproveRequest,
+    current_user: UserInfo = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Bulk approve multiple approval requests."""
+    service = ApprovalService()
+    result = service.bulk_approve(
+        db=db,
+        approval_ids=bulk_data.approval_ids,
+        approver_id=current_user.object_id,
+        comment=bulk_data.comment,
+        required_approvals=bulk_data.required_approvals,
+    )
+    
+    # Log audit
+    AuditService.log_action(
+        db=db,
+        user_id=current_user.object_id,
+        action="bulk_approve",
+        resource_type="approval_request",
+        resource_id=str(len(bulk_data.approval_ids)),
+        new_value={"approved_count": len(result.get("approved_ids", []))},
+        correlation_id=None,
+    )
+    
+    return result
+
+
+@router.post(
+    "/bulk/reject",
+    response_model=dict,
+    summary="Bulk reject",
+    description="Reject multiple approval requests in bulk",
+)
+async def bulk_reject(
+    bulk_data: BulkRejectRequest,
+    current_user: UserInfo = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Bulk reject multiple approval requests."""
+    service = ApprovalService()
+    result = service.bulk_reject(
+        db=db,
+        approval_ids=bulk_data.approval_ids,
+        approver_id=current_user.object_id,
+        comment=bulk_data.comment,
+    )
+    
+    # Log audit
+    AuditService.log_action(
+        db=db,
+        user_id=current_user.object_id,
+        action="bulk_reject",
+        resource_type="approval_request",
+        resource_id=str(len(bulk_data.approval_ids)),
+        new_value={"rejected_count": len(result.get("rejected_ids", []))},
+        correlation_id=None,
+    )
+    
+    return result
+
+
+@router.post(
+    "/{approval_id}/escalate",
+    response_model=ApprovalRequestResponse,
+    summary="Escalate approval",
+    description="Escalate an approval request to a higher role",
+)
+async def escalate_approval(
+    approval_id: UUID,
+    escalation: EscalationRequest,
+    current_user: UserInfo = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Escalate an approval request to a higher role."""
+    service = ApprovalService()
+    result = service.escalate_approval(
+        db=db,
+        approval_id=approval_id,
+        approver_id=current_user.object_id,
+        new_approver_role=escalation.target_role,
+        reason=escalation.reason or "",
+    )
+    
+    return result
+
+
+@router.post(
+    "/handle-timeouts",
+    response_model=dict,
+    summary="Handle timeouts",
+    description="Handle timeouts for all pending approval requests",
+)
+async def handle_timeouts(
+    timeout_hours: Optional[int] = Query(None, description="Override timeout in hours"),
+    escalate_to_role: Optional[str] = Query(None, description="Role to escalate to"),
+    current_user: UserInfo = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Handle timeouts for all pending approval requests."""
+    role = ApprovalRole(escalate_to_role) if escalate_to_role else None
+    service = ApprovalService()
+    result = service.handle_timeout_escalation(
+        db=db,
+        timeout_hours=timeout_hours,
+        escalate_to_role=role,
+    )
+    
+    # Log audit
+    AuditService.log_action(
+        db=db,
+        user_id=current_user.object_id,
+        action="handle_timeouts",
+        resource_type="approval_request",
+        resource_id="bulk",
+        new_value={
+            "expired_count": result.get("expired_count", 0),
+            "escalated_count": result.get("escalated_count", 0),
+        },
+        correlation_id=None,
+    )
+    
+    return result
+
+
+@router.get(
+    "/pending/count",
+    response_model=PendingApprovalCountResponse,
+    summary="Get pending approval count",
+    description="Get count of pending approval requests for the current user",
+)
+async def get_pending_count(
+    current_user: UserInfo = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get count of pending approval requests."""
+    service = ApprovalService()
+    count = service.get_pending_approval_count(
+        db=db,
+        user_id=current_user.object_id,
+    )
+    
+    return {"count": count}
