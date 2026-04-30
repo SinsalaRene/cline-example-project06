@@ -15,15 +15,22 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { RouterModule } from '@angular/router';
 
 import { RulesListComponent } from './components/rules-list.component';
 import { RuleFormDialogComponent } from './components/rule-form-dialog.component';
+import { RuleDetailComponent } from './components/rule-detail.component';
+import { ConfirmationDialogComponent } from './components/confirmation-dialog.component';
 import { RulesService } from './services/rules.service';
 
 @NgModule({
     declarations: [
         RulesListComponent,
-        RuleFormDialogComponent
+        RuleFormDialogComponent,
+        RuleDetailComponent,
+        ConfirmationDialogComponent
     ],
     imports: [
         CommonModule,
@@ -42,7 +49,16 @@ import { RulesService } from './services/rules.service';
         MatDialogModule,
         MatProgressSpinnerModule,
         MatChipsModule,
-        MatExpansionModule
+        MatExpansionModule,
+        MatCheckboxModule,
+        MatSnackBarModule,
+        RouterModule
+    ],
+    exports: [
+        RulesListComponent,
+        RuleFormDialogComponent,
+        RuleDetailComponent,
+        ConfirmationDialogComponent
     ],
     providers: [RulesService]
 })
