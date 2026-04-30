@@ -25,6 +25,7 @@ import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './components/app.component';
 import { LayoutModule } from './modules/layout.module';
 import { SharedModule } from './shared/shared.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { CoreService } from './core/services/api.service';
 import { AuthService } from './core/services/auth.service';
 import { ErrorHandlerService } from './core/services/error-handler.service';
@@ -51,6 +52,7 @@ const HTTP_INTERCEPTOR_PROVIDERS: Provider[] = [
         AppRoutingModule,
         LayoutModule,
         SharedModule,
+        AuthModule,
         // Material modules
         MatTableModule,
         MatPaginatorModule,

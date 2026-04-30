@@ -1,6 +1,8 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { AuthGuard } from './core/guards/auth.guard';
+import { AuthGuard, ReverseAuthGuard, PublicGuard, RoleGuard, PermissionGuard } from './core/guards/auth.guard';
+import { LoginComponent } from './modules/auth/login/login.component';
+import { LogoutComponent } from './modules/auth/logout/logout.component';
 
 const routes: Routes = [
     { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
@@ -24,7 +26,31 @@ const routes: Routes = [
         canActivate: [AuthGuard],
         loadChildren: () => import('./modules/workloads/workloads.module').then(m => m.WorkloadsModule)
     },
-    { path: 'login', loadComponent: () => import('./components/login/login.component').then(m => m.LoginComponent) },
+    // Public routes (accessible when not logged in)
+    {
+        path: 'login',
+        canActivate: [PublicGuard],
+        component: LoginComponent
+    },
+    // Logout route
+    {
+        path: 'logout',
+        component: LogoutComponent
+    },
+    // Role-protected route example
+    {
+        path: 'admin',
+        canActivate: [RoleGuard],
+        data: { roles: ['admin'] },
+        loadChildren: () => import('./modules/admin/admin.module').then(m => m.AdminModule)
+    },
+    // Permission-protected route example
+    {
+        path: 'settings',
+        canActivate: [PermissionGuard],
+        data: { permission: 'settings:write' },
+        loadChildren: () => import('./modules/settings/settings.module').then(m => m.SettingsModule)
+    },
     { path: '**', redirectTo: '/dashboard' }
 ];
 

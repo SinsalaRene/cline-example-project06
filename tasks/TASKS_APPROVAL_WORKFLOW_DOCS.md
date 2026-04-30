@@ -1,446 +1,267 @@
-# Approval Workflow Documentation
+# Auth Module Documentation
 
 ## Overview
 
-The approval workflow system provides multi-level approval management for firewall rule changes. It supports creating approval requests, multi-step approval chains, timeout handling, escalation logic, and bulk operations.
+The authentication module provides a complete authentication system for the Azure Firewall Manager application. It includes login/logout functionality, route guards for protecting routes, and role-based access control (RBAC).
 
 ## Architecture
 
-### Components
-
-1. **ApprovalRequest** - The main entity representing a change request that needs approval
-2. **ApprovalStep** - Individual steps in the approval chain
-3. **ApprovalService** - Business logic for approval operations
-4. **NotificationService** - Handles email, in-app, and webhook notifications
-5. **Approval API** - REST endpoints for approval operations
-
-### Approval Flow
+### File Structure
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│  Create      │────>│  Step 1:     │────>│  Step 2:     │
-│  Request     │     │  Workload   │     │  Security    │
-│              │     │  Stakeholder│     │  Stakeholder │
-└─────────────┘     └──────────────┘     └─────────────┘
-                           │                      │
-                     Pending                   Pending
-                           │                      │
-                    ┌──────▼──────┐      ┌──────▼──────┐
-                    │  Approve    │      │  Approve    │
-                    │  or Reject  │      │  or Reject  │
-                    └──────┬──────┘      └──────┬──────┘
-                           │                      │
-                    ┌──────▼──────────────────────▼──────┐
-                    │         Final Status               │
-                    │  (Approved / Rejected / Expired)  │
-                    └───────────────────────────────────┘
+frontend/src/app/
+├── modules/auth/
+│   ├── auth.module.ts                    # Auth module
+│   ├── login/
+│   │   ├── login.component.ts            # Login component logic
+│   │   ├── login.component.html          # Login form template
+│   │   ├── login.component.css           # Login form styles
+│   │   └── login.component.spec.ts       # Login component tests
+│   ├── logout/
+│   │   └── logout.component.ts           # Logout component logic
+│   └── directives/
+│       └── role.directive.ts             # Role-based directive
+└── core/guards/
+    ├── auth.guard.ts                     # Auth guards (5 guards)
+    └── auth.guard.spec.ts                # Auth guards tests
 ```
 
-## Approval Statuses
+## Auth Flow
 
-| Status | Description |
-|--------|-------------|
-| `pending` | Awaiting approval from required stakeholders |
-| `approved` | All required approvals have been granted |
-| `rejected` | One or more approvers have rejected the request |
-| `expired` | The approval request has timed out |
-| `revoked` | The request was revoked by the creator |
+### 1. User Navigates to Protected Route
 
-## Change Types
+```
+User -> /rules
+       ↓
+    AuthGuard.canActivate()
+       ↓
+    Is user logged in?
+       ├── Yes  -> Allow navigation
+       └── No   -> Redirect to /login
+```
 
-| Change Type | Description |
-|-------------|-------------|
-| `create` | New firewall rule being created |
-| `update` | Existing firewall rule being modified |
-| `delete` | Firewall rule being removed |
+### 2. Login Process
 
-## Approval Roles
+```
+User enters credentials
+       ↓
+    LoginComponent.onSubmit()
+       ↓
+    AuthService.login(username, password)
+       ↓
+    API Call: POST /api/v1/auth/login
+       ↓
+    ┌─────────────────────┐
+    │ Response Status     │
+    ├─────────────────────┤
+    │ 200 OK:             │
+    │ - Save token        │
+    │ - Save user data    │
+    │ - Set isLoggedIn    │
+    │ - Navigate /dashboard│
+    ├─────────────────────┤
+    │ 401 Unauthorized:   │
+    │ - Show error        │
+    │ - "Invalid creds"   │
+    ├─────────────────────┤
+    │ 403 Forbidden:      │
+    │ - Show error        │
+    │ - "Access denied"   │
+    └─────────────────────┘
+```
 
-| Role | Description |
-|------|-------------|
-| `workload_stakeholder` | The person/team responsible for the workload |
-| `security_stakeholder` | Security team member responsible for firewall policy |
+### 3. Logout Process
 
-## API Endpoints
+```
+User clicks logout
+       ↓
+    LogoutComponent.ngOnInit()
+       ↓
+    AuthService.logout()
+       ↓
+    - Remove auth_token from localStorage
+    - Remove user data from localStorage
+    - Set isLoggedIn to false
+    - Clear userSubject
+       ↓
+    Navigate to /login
+```
 
-### Create Approval Request
+## Auth Guards
 
-```http
-POST /api/approvals
-Content-Type: application/json
+### AuthGuard
+- **Purpose**: Protect routes that require authentication
+- **Behavior**: If not logged in, redirect to `/login`
+- **Usage**: `canActivate: [AuthGuard]`
 
-{
-  "rule_ids": ["uuid1", "uuid2"],
-  "change_type": "create",
-  "description": "Add new rule for production workload",
-  "workload_id": "uuid",
-  "required_approvals": 2
+### ReverseAuthGuard
+- **Purpose**: Prevent authenticated users from accessing public-only routes
+- **Behavior**: If logged in, redirect to `/dashboard`; if not logged in, allow access
+- **Usage**: Protect routes that should redirect authenticated users
+
+### PublicGuard
+- **Purpose**: Allow unauthenticated users to access public routes (e.g., login page)
+- **Behavior**: If logged in, redirect to `/dashboard`; if not logged in, allow access
+- **Usage**: Protect the login page from authenticated users
+
+### RoleGuard
+- **Purpose**: Restrict routes to users with specific roles
+- **Behavior**: Check if user has required roles from route data
+- **Usage**:
+  ```typescript
+  {
+    path: 'admin',
+    canActivate: [RoleGuard],
+    data: { roles: ['admin'] }
+  }
+  ```
+
+### PermissionGuard
+- **Purpose**: Restrict routes to users with specific permissions
+- **Behavior**: Check if user has required permission
+- **Usage**:
+  ```typescript
+  {
+    path: 'settings',
+    canActivate: [PermissionGuard],
+    data: { permission: 'settings:write' }
+  }
+  ```
+
+## AuthService
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `isLoggedIn` | `Signal<boolean>` | Reactive login state |
+| `userName` | `Signal<string>` | Current user's display name |
+| `user$` | `Observable<UserInfo>` | Observable stream of user info |
+
+### Methods
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `login()` | `username, password` | `Observable<any>` | Authenticate user |
+| `loginWithToken()` | `token, user` | `void` | Login with existing token |
+| `logout()` | None | `void` | Clear auth state and redirect |
+| `hasRole()` | `role: string` | `boolean` | Check if user has role |
+| `hasPermission()` | `permission: string` | `boolean` | Check if user has permission |
+| `handleAuthError()` | None | `void` | Handle auth error (logout + emit) |
+
+### User Info Interface
+
+```typescript
+interface UserInfo {
+    object_id: string;    // Azure AD object ID
+    display_name: string; // User's display name
+    email: string;        // User's email
+    roles?: string[];     // User's roles
 }
 ```
 
-### Get Approval Request
+## Role Directive
 
-```http
-GET /api/approvals/{approval_id}
+### Usage
+
+The `*appRole` directive conditionally renders content based on user roles:
+
+```html
+<!-- Show to admins only -->
+<div *appRole="'admin'">Admin content</div>
+
+<!-- Show to admins OR editors -->
+<div *appRole="['admin', 'editor']">Restricted content</div>
 ```
 
-### Approve Step
+### How It Works
 
-```http
-POST /api/approvals/{approval_id}/approve
-Content-Type: application/json
+1. The directive receives role(s) from its input
+2. On initialization (`ngOnInit`), it checks if the current user has any of the required roles
+3. If the user has access, the template is rendered
+4. If not, the template is cleared (hidden)
 
-{
-  "comment": "Looks good, approved"
-}
-```
+## State Persistence
 
-### Reject Step
+Authentication state is persisted in `localStorage`:
 
-```http
-POST /api/approvals/{approval_id}/reject
-Content-Type: application/json
+- `auth_token`: JWT token or session token
+- `user`: Serialized user info object
 
-{
-  "comment": "Rule conflicts with existing policy"
-}
-```
+On page reload, the `AuthService` constructor checks for saved user data and restores the auth state.
 
-### Add Comment
+## Route Configuration
 
-```http
-POST /api/approvals/{approval_id}/comment
-Content-Type: application/json
+### Current Routes
 
-{
-  "comment": "Need to verify with security team"
-}
-```
-
-### List Approvals
-
-```http
-GET /api/approvals?page=1&page_size=50&status=pending
-```
-
-### Bulk Approve
-
-```http
-POST /api/approvals/bulk/approve
-Content-Type: application/json
-
-{
-  "approval_ids": ["uuid1", "uuid2"],
-  "comment": "Bulk approved all pending"
-}
-```
-
-### Bulk Reject
-
-```http
-POST /api/approvals/bulk/reject
-Content-Type: application/json
-
-{
-  "approval_ids": ["uuid1", "uuid2"],
-  "comment": "Bulk rejected - too many changes"
-}
-```
-
-## Timeout Handling
-
-### Default Timeout
-
-- **Default:** 48 hours
-- Configurable via `ApprovalService(default_timeout_hours=N)`
-- Timeout period starts from `created_at` timestamp
-
-### Timeout Behavior
-
-1. **Detection**: A background job or manual trigger checks for expired approvals
-2. **Expiration**: Pending requests past timeout are marked `expired`
-3. **Escalation** (optional): Requests can be escalated to a higher role
-4. **Notification**: All stakeholders are notified of expiration
-
-### Timeout API
-
-```python
-from app.services.approval_service import ApprovalService
-
-service = ApprovalService(default_timeout_hours=48)
-
-# Expire all timed-out requests
-result = service.handle_timeout_escalation(
-    db=session,
-    timeout_hours=48,  # Override timeout
-    escalate_to_role=ApprovalRole.SecurityStakeholder,  # Optional escalation
-)
-
-# Result:
-{
-    "expired_count": 5,
-    "escalated_count": 2,
-    "details": [...]
-}
-```
-
-### Scheduled Timeout Check
-
-Use a cron job or background worker to run timeout checks periodically:
-
-```python
-import schedule
-from app.services.approval_service import ApprovalService
-
-def timeout_check():
-    from app.database import get_db
-    service = ApprovalService(default_timeout_hours=48)
-    
-    with next(get_db()) as db:
-        result = service.handle_timeout_escalation(db=db)
-        print(f"Timed out: {result['expired_count']}")
-
-schedule.every(6).hours.do(timeout_check)
-```
-
-## Escalation Logic
-
-### Manual Escalation
-
-```python
-from app.services.approval_service import ApprovalService
-from app.models.approval import ApprovalRole
-
-service = ApprovalService()
-result = service.escalate_approval(
-    db=session,
-    approval_id=approval_id,
-    approver_id=current_user_id,
-    new_approver_role=ApprovalRole.SecurityStakeholder,
-    reason="Urgent change - stakeholder unavailable"
-)
-```
-
-### Automatic Escalation
-
-When `handle_timeout_escalation` is called with `escalate_to_role`, timed-out requests are automatically escalated:
-
-1. Request is marked as `expired`
-2. A new approval step with the escalated role is created
-3. Comment is added: "Auto-escalated after N hours timeout"
-4. Notification is sent to the escalated role
-
-### Escalation Chain
-
-```
-Original Role ──(timeout)──> Escalated Role ──(timeout)──> Admin Role
-    Workload                 Security                      Security Lead
-```
-
-## Notifications
-
-### Notification Channels
-
-| Channel | Status | Description |
-|---------|--------|-------------|
-| Email | Supported | SMTP-based email notifications |
-| In-App | Supported | Database-stored notifications |
-| Webhook | Supported | HTTP POST to configurable URL |
-
-### Notification Types
-
-| Type | Trigger |
-|------|---------|
-| `approval_request_created` | New approval request created |
-| `approval_pending` | Action needed from recipient |
-| `approval_approved` | Approval request approved |
-| `approval_rejected` | Approval request rejected |
-| `approval_expired` | Approval request timed out |
-| `approval_escalated` | Request escalated to new role |
-| `approval_bulk_completed` | Bulk operation completed |
-| `escalation_triggered` | Escalation initiated |
-
-### Configuring Notifications
-
-```python
-from app.services.notification_service import NotificationService
-
-service = NotificationService(
-    smtp_host="smtp.example.com",
-    smtp_port=587,
-    smtp_user="notifications@example.com",
-    smtp_password="secret",
-    from_email="noreply@example.com",
-    use_tls=True,
-    enable_email=True,
-    enable_in_app=True,
-    enable_webhook=True,
-    webhook_url="https://hooks.example.com/notifications"
-)
-```
-
-## Bulk Operations
-
-### Bulk Approve
-
-```python
-from app.services.approval_service import ApprovalService
-
-service = ApprovalService()
-result = service.bulk_approve(
-    db=session,
-    approval_ids=[id1, id2, id3],
-    approver_id=current_user_id,
-    comment="Bulk approved all pending changes",
-)
-# Result: {
-#     "approved_ids": ["uuid1", "uuid2"],
-#     "rejected_ids": [],
-#     "errors": [],
-#     "total_processed": 3,
-#     "total_approved": 2,
-#     "total_rejected": 0
-# }
-```
-
-### Bulk Reject
-
-```python
-result = service.bulk_reject(
-    db=session,
-    approval_ids=[id1, id2, id3],
-    approver_id=current_user_id,
-    comment="Bulk rejected - weekend changes",
-)
+```typescript
+const routes: Routes = [
+    { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
+    { path: 'login', component: LoginComponent },
+    { path: 'logout', component: LogoutComponent },
+    // Protected routes...
+    {
+        path: 'rules',
+        canActivate: [AuthGuard],
+        loadChildren: () => import('./rules')
+    },
+    // Fallback
+    { path: '**', redirectTo: '/dashboard' }
+];
 ```
 
 ## Testing
 
+### Login Component Tests
+
+The login component tests cover:
+- Component creation and initialization
+- Form validation (empty fields, invalid emails)
+- Submit behavior (loading state, API calls, error handling)
+- Password visibility toggle
+- Azure AD login redirect
+
+### Auth Guards Tests
+
+The auth guards tests cover:
+- Guard creation and injection
+- Authenticated user behavior
+- Unauthenticated user behavior
+- Role-based access control
+- Permission-based access control
+
 ### Running Tests
 
 ```bash
-cd backend
-python -m pytest tests/test_approval_service.py -v
+npm run test
 ```
 
-### Test Categories
+## Security Considerations
 
-| Category | Description |
-|----------|-------------|
-| Timeout Handling | Verifies timeout detection and expiration |
-| Bulk Operations | Tests bulk approve/reject scenarios |
-| Escalation | Tests manual and automatic escalation |
-| Notifications | Tests notification delivery |
-| Lifecycle | Tests full approval lifecycle |
+1. **Token Storage**: Tokens are stored in `localStorage` for persistence
+2. **Token Expiration**: Implement token refresh mechanism
+3. **XSS Protection**: Sanitize user input in login form
+4. **CSRF Protection**: Use http-only cookies when possible
+5. **Role Validation**: Always validate roles on the server side as well
 
-## Integration with Firewall Service
+## Integration Points
 
-### Creating Approval for Rule Change
+### Backend API Endpoints
 
-```python
-from app.services.approval_service import ApprovalService
-from app.services.firewall_service import FirewallService
-from app.models.approval import ChangeType
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/auth/login` | POST | Authenticate user |
+| `/api/v1/auth/logout` | POST | Logout user |
+| `/api/v1/auth/me` | GET | Get current user info |
 
-# Create rule change request
-approval_service = ApprovalService()
-firewall_service = FirewallService()
+### Azure AD Integration
 
-# Create approval request
-approval = approval_service.create_approval_request(
-    db=session,
-    rule_ids=[rule_id],
-    change_type=ChangeType.Create,
-    description="Add rule for production API",
-    user_id=current_user_id,
-    workload_id=workload_id,
-    required_approvals=2,
-)
+For Azure AD SSO, the login component includes an `onAzureLogin()` method that redirects to Microsoft's OAuth2 endpoint:
 
-# Apply rule once approved
-# (typically done in API route after approval is confirmed)
 ```
-
-## Database Schema
-
-### approval_requests Table
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| rule_ids | TEXT (JSON) | List of rule UUIDs |
-| change_type | VARCHAR(50) | Type of change |
-| description | TEXT | Change description |
-| current_user_id | UUID | Request creator |
-| status | VARCHAR(50) | Current status |
-| workload_id | UUID | Associated workload |
-| required_approvals | INTEGER | Required approval count |
-| current_approval_stage | INTEGER | Current stage number |
-| approval_flow | VARCHAR(50) | Flow type (multi_level) |
-| created_at | TIMESTAMP | Creation time |
-| completed_at | TIMESTAMP | Completion time |
-
-### approval_steps Table
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| approval_request_id | UUID | Parent approval request |
-| approver_id | UUID | Approver user ID |
-| approver_role | VARCHAR(50) | Required role |
-| status | VARCHAR(50) | Step status |
-| comments | TEXT | Approval/rejection comments |
-| approved_at | TIMESTAMP | Approval timestamp |
-| created_at | TIMESTAMP | Creation timestamp |
-
-## Best Practices
-
-### Creating Approval Requests
-
-1. Always provide a clear, concise description
-2. Include all relevant rule IDs
-3. Set appropriate `required_approvals` based on change impact
-4. Associate with workload when applicable
-
-### Handling Timeouts
-
-1. Run timeout checks every 6-12 hours
-2. Configure escalation role based on organizational hierarchy
-3. Review expired requests regularly
-4. Use escalation for urgent changes
-
-### Bulk Operations
-
-1. Filter pending requests before bulk operations
-2. Document bulk changes in comment
-3. Notify stakeholders after bulk operations
-4. Review error results for failed items
-
-### Notifications
-
-1. Configure SMTP for email notifications
-2. Set up webhook for Slack/Teams integration
-3. Test notification delivery in staging
-4. Monitor notification delivery rates
-
-## Troubleshooting
-
-### Common Issues
-
-| Issue | Solution |
-|-------|----------|
-| Approvals not expiring | Ensure timeout check runs regularly |
-| Notifications not sent | Check SMTP/webhook configuration |
-| Escalation not working | Verify escalated role exists |
-| Bulk approve failing | Check for already-approved items |
-
-### Debug Mode
-
-Enable debug logging:
-
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
-
-This will show detailed approval workflow activity.
+https://login.microsoftonline.com/common/oauth2/v2.0/authorize?
+  client_id={CLIENT_ID}
+  &response_type=id_token+token
+  &redirect_uri={REDIRECT_URI}
+  &scope=openid+profile
+  &state={REDIRECT_URI}

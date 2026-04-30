@@ -1,0 +1,92 @@
+<div class="login-container">
+  <div class="login-card mat-elevation-z8">
+    <div class="login-header">
+      <h1>Microsoft Azure Firewall Manager</h1>
+      <p>Sign in to your account</p>
+    </div>
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+      <!-- Username/Email Field -->
+      <mat-form-field class="full-width" appearance="standard">
+        <mat-label>Email address</mat-label>
+        <input
+          matInput
+          formControlName="username"
+          type="email"
+          placeholder="user@company.com"
+          autocomplete="email"
+        />
+        <mat-error *ngIf="username?.hasError('required')">
+          Email is required
+        </mat-error>
+        <mat-error *ngIf="username?.hasError('email')">
+          Please enter a valid email address
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Password Field -->
+      <mat-form-field class="full-width" appearance="standard">
+        <mat-label>Password</mat-label>
+        <input
+          matInput
+          formControlName="password"
+          [type]="showPassword ? 'text' : 'password'"
+          placeholder="Enter your password"
+          autocomplete="current-password"
+        />
+        <button
+          mat-icon-button
+          matSuffix
+          type="button"
+          (click)="togglePasswordVisibility()"
+          [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+        >
+          <mat-icon>{{
+            showPassword ? "visibility_off" : "visibility"
+          }}</mat-icon>
+        </button>
+        <mat-error *ngIf="password?.hasError('required')">
+          Password is required
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Error Message -->
+      <div class="error-message" *ngIf="errorMessage">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ errorMessage }}</span>
+      </div>
+
+      <!-- Submit Button -->
+      <button
+        mat-raised-button
+        color="primary"
+        type="submit"
+        [disabled]="loginForm.invalid || isLoading"
+        class="full-width login-button"
+      >
+        <span *ngIf="!isLoading">Sign In</span>
+        <mat-spinner
+          *ngIf="isLoading"
+          diameter="20"
+          class="spinner"
+        ></mat-spinner>
+      </button>
+
+      <!-- Azure AD SSO Button -->
+      <button
+        mat-outlined-button
+        class="full-width azure-btn"
+        (click)="onAzureLogin()"
+        type="button"
+        [disabled]="isLoading"
+      >
+        <mat-icon>account_circle</mat-icon>
+        <span>Sign in with Microsoft</span>
+      </button>
+    </form>
+
+    <div class="login-footer">
+      <p>Powered by <strong>Microsoft Azure</strong></p>
+    </div>
+  </div>
+</div>
