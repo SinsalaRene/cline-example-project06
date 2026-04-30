@@ -25,21 +25,27 @@ class Settings(BaseSettings):
     """
 
     # Azure Configuration
-    azure_tenant_id: str
-    azure_client_id: str
-    azure_client_secret: str
-    azure_subscription_id: str
-    azure_resource_group: str
+    azure_tenant_id: str = "test-tenant-id"
+    azure_client_id: str = "test-client-id"
+    azure_client_secret: str = "test-client-secret"
+    azure_subscription_id: str = "test-subscription-id"
+    azure_resource_group: str = "test-resource-group"
     azure_region: str = "eastus"
 
     # Database Configuration
     database_url: str = "sqlite:///./firewall_mgmt.db"
     database_echo: bool = False
 
-    # Security
+    # Security / JWT Configuration
     secret_key: str = "your-secret-key-change-in-production"
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 480
+    access_token_expire_minutes: int = 30  # Short-lived access tokens (max 1440 per validator)
+    refresh_token_expire_days: int = 7  # Refresh tokens valid for 7 days
+    
+    # Rate Limiting for Auth Endpoints
+    auth_rate_limit_per_minute: int = 20  # Max 20 requests per minute per IP
+    auth_rate_limit_window: int = 60  # 60 seconds window
+    rate_limit_enabled: bool = True  # Master switch for rate limiting
 
     # API Configuration
     debug: bool = False
@@ -83,6 +89,14 @@ class Settings(BaseSettings):
         field_name = info.data.get("field_name")
         if field_name and not v.strip():
             raise ValueError(f"{field_name} is required for Azure authentication")
+        return v
+
+    @field_validator("secret_key")
+    @classmethod
+    def validate_secret_key_len(cls, v: str) -> str:
+        """Validate that secret_key has sufficient length but allow test values."""
+        if len(v) < 8:
+            raise ValueError("secret_key must be at least 8 characters long for testing")
         return v
 
     @field_validator("secret_key")

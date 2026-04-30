@@ -3,11 +3,65 @@ Pydantic schemas for Users and Authentication.
 """
 
 from datetime import datetime
-from typing import Optional, list
+from typing import Optional, List
 from uuid import UUID
 from enum import Enum
 
 from pydantic import BaseModel, Field
+
+
+# ---- Auth Schemas ----
+
+class LoginRequest(BaseModel):
+    """Schema for login request."""
+    username: str = Field(..., description="Username or email")
+    password: str = Field(..., description="Password")
+
+
+class LoginResponse(BaseModel):
+    """Schema for login response with tokens."""
+    access_token: str
+    refresh_token: str
+    expires_in: int
+    token_type: str = "Bearer"
+
+
+class RefreshTokenRequest(BaseModel):
+    """Schema for refresh token request."""
+    refresh_token: str = Field(..., description="Refresh token")
+
+
+class RefreshTokenResponse(BaseModel):
+    """Schema for refresh token response."""
+    access_token: str
+    refresh_token: str
+    expires_in: int
+    token_type: str = "Bearer"
+
+
+class LogoutRequest(BaseModel):
+    """Schema for logout request."""
+    refresh_token: Optional[str] = None
+    access_token: Optional[str] = None
+
+
+class TokenBlacklistRequest(BaseModel):
+    """Schema for token blacklist request."""
+    token: str = Field(..., description="Token to blacklist")
+    token_type: str = Field(default="access", description="Type of token (access or refresh)")
+
+
+class UserInfo(BaseModel):
+    """Schema for authenticated user information."""
+    object_id: UUID
+    email: str
+    display_name: str
+    given_name: Optional[str] = None
+    surname: Optional[str] = None
+    roles: List[str] = Field(default_factory=list)
+    is_active: bool = True
+
+    model_config = {"from_attributes": True}
 
 
 class UserRole(str, Enum):
@@ -19,33 +73,16 @@ class UserRole(str, Enum):
     Viewer = "viewer"
 
 
-# --- Auth Schemas ---
+# ---- Rate Limiting Schemas ----
 
-class UserInfo(BaseModel):
-    """Schema for authenticated user information."""
-    object_id: UUID
-    email: str
-    display_name: str
-    given_name: Optional[str] = None
-    surname: Optional[str] = None
-    roles: list[str] = Field(default_factory=list)
-    is_active: bool = True
+class RateLimitInfo(BaseModel):
+    """Schema for rate limit information."""
+    limit: int
+    remaining: int
+    reset_in: int
 
 
-class TokenResponse(BaseModel):
-    """Schema for authentication token response."""
-    access_token: str
-    refresh_token: str
-    expires_in: int
-    token_type: str = "Bearer"
-
-
-class RefreshTokenRequest(BaseModel):
-    """Schema for refresh token request."""
-    refresh_token: str = Field(..., min_length=1)
-
-
-# --- User Management Schemas ---
+# ---- User Management Schemas ----
 
 class UserRoleAssignment(BaseModel):
     """Schema for user role assignment."""
