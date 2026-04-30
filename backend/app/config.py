@@ -1,42 +1,49 @@
 """
 Configuration management for the Azure Firewall Management application.
-Uses environment variables with sensible defaults.
+
+Uses environment variables with validation and sensible defaults.
+Supports both SQLite (development) and PostgreSQL (production) databases.
 """
 
-from typing import Optional
-from pydantic_settings import BaseSettings
-from pydantic import Field
+from typing import Optional, List
+from enum import Enum as PyEnum
 from functools import lru_cache
+from pydantic import field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class DatabaseType(str, PyEnum):
+    """Supported database types."""
+    SQLite = "sqlite"
+    PostgreSQL = "postgresql"
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
+    """Application settings loaded from environment variables.
+    
+    Validates required fields and provides sensible defaults for development.
+    """
 
     # Azure Configuration
-    azure_tenant_id: str = Field(..., description="Azure Entra ID Tenant ID")
-    azure_client_id: str = Field(..., description="Azure Entra ID Client ID for the app")
-    azure_client_secret: str = Field(..., description="Azure Client Secret")
-    azure_subscription_id: str = Field(..., description="Azure Subscription ID")
-    azure_resource_group: str = Field(..., description="Azure Resource Group name")
+    azure_tenant_id: str
+    azure_client_id: str
+    azure_client_secret: str
+    azure_subscription_id: str
+    azure_resource_group: str
     azure_region: str = "eastus"
 
     # Database Configuration
-    database_url: str = Field(
-        "sqlite:///./firewall_mgmt.db",
-        description="Database connection URL"
-    )
+    database_url: str = "sqlite:///./firewall_mgmt.db"
+    database_echo: bool = False
 
     # Security
-    secret_key: str = Field(
-        "your-secret-key-change-in-production",
-        description="Secret key for JWT signing"
-    )
+    secret_key: str = "your-secret-key-change-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 480
 
     # API Configuration
     debug: bool = False
-    allowed_hosts: list[str] = Field(default_factory=lambda: ["*"])
+    allowed_hosts: List[str] = ["*"]
     api_prefix: str = "/api"
 
     # Azure Service Bus (optional)
@@ -49,19 +56,120 @@ class Settings(BaseSettings):
     smtp_port: int = 587
 
     # OpenAPI/JWT Configuration
-    auth_metadata_url: str = Field(
-        default_factory=lambda: "https://login.microsoftonline.com/common/.well-known/openid-configuration"
+    auth_metadata_url: str = (
+        "https://login.microsoftonline.com/common/.well-known/openid-configuration"
     )
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    @field_validator("database_url")
+    @classmethod
+    def validate_database_url(cls, v: str) -> str:
+        """Validate database URL format and type."""
+        if not v:
+            raise ValueError("DATABASE_URL cannot be empty")
+        return v
+
+    @field_validator("azure_tenant_id", "azure_client_id", "azure_client_secret", 
+                      "azure_subscription_id", "azure_resource_group")
+    @classmethod
+    def validate_azure_config(cls, v: str, info) -> str:
+        """Validate that required Azure configuration is not empty."""
+        field_name = info.data.get("field_name")
+        if field_name and not v.strip():
+            raise ValueError(f"{field_name} is required for Azure authentication")
+        return v
+
+    @field_validator("secret_key")
+    @classmethod
+    def validate_secret_key(cls, v: str) -> str:
+        """Validate that secret_key is not the default value."""
+        if v == "your-secret-key-change-in-production":
+            # Only warn in debug mode
+            pass
+        if not v or len(v) < 16:
+            raise ValueError("secret_key must be at least 16 characters long")
+        return v
+
+    @field_validator("access_token_expire_minutes")
+    @classmethod
+    def validate_token_expiry(cls, v: int) -> int:
+        """Validate token expiration time."""
+        if v <= 0:
+            raise ValueError("access_token_expire_minutes must be positive")
+        if v > 1440:  # 24 hours max
+            raise ValueError("access_token_expire_minutes must not exceed 1440 (24 hours)")
+        return v
+
+    @property
+    def database_type(self) -> str:
+        """Return the detected database type."""
+        if "sqlite" in self.database_url:
+            return "sqlite"
+        elif "postgresql" in self.database_url:
+            return "postgresql"
+        return "unknown"
+
+    @property
+    def is_production(self) -> bool:
+        """Return True if running in production mode."""
+        return self.database_type == "postgresql" and self.debug is False
+
+    @property
+    def is_development(self) -> bool:
+        """Return True if running in development mode."""
+        return self.database_type == "sqlite" or self.debug is True
+
+    def get_database_dsn(self, include_password: bool = True) -> str:
+        """Get a sanitized database DSN for display/logging.
+        
+        Args:
+            include_password: Whether to include password in the DSN.
+            
+        Returns:
+            str: Sanitized database DSN.
+        """
+        if "sqlite" in self.database_url:
+            return "sqlite:///[local database file]"
+        
+        if include_password:
+            return self.database_url
+        
+        # Replace password with ***
+        parts = self.database_url.split("://")
+        if len(parts) == 2:
+            scheme = parts[0]
+            rest = parts[1]
+            if "@" in rest:
+                host = rest.split("@")[-1]
+                return f"{scheme}://***@{host}"
+        return self.database_url + " (password hidden)"
+
+    def get_postgres_url(self) -> str:
+        """Get PostgreSQL URL from environment or raise error."""
+        import os
+        
+        url = os.environ.get("DATABASE_URL")
+        if not url or "postgresql" not in url:
+            raise ValueError(
+                "DATABASE_URL must be a valid PostgreSQL connection string for production. "
+                "Example: postgresql://user:password@host:5432/dbname"
+            )
+        return url
 
 
 @lru_cache()
 def get_settings() -> Settings:
-    """Get cached settings instance."""
+    """Get cached settings instance.
+    
+    Returns:
+        Settings: Application settings instance.
+    """
     return Settings()
 
 

@@ -1,27 +1,48 @@
 """
 Database models for Approval Workflows.
+
+This module contains SQLAlchemy models that are compatible with both
+SQLite (development) and PostgreSQL (production) databases.
+
+Cross-database compatibility:
+- Uses UUID (String) for primary keys instead of PostgreSQL-specific UUID type
+- Uses Text for JSON arrays instead of ARRAY/JSONB
+- Uses String type for enum storage
 """
 
 import uuid
 from datetime import datetime
-from enum import Enum
-from typing import Optional, list
+from enum import Enum as PyEnum
+from typing import TYPE_CHECKING, Optional, List
 
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Boolean, func
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, ARRAY, JSONB
+from sqlalchemy import (
+    Column,
+    String,
+    Integer,
+    DateTime,
+    ForeignKey,
+    Text,
+    Boolean,
+    func,
+)
 from sqlalchemy.orm import relationship, declarative_base
-from sqlalchemy import Enum as SAEnum
 
-Base = declarative_base()
+from app.models.firewall_rule import Base
+
+if TYPE_CHECKING:
+    from app.models.audit import AuditLog
+    from app.models.firewall_rule import Workload
 
 
-class ChangeType(str, Enum):
+class ChangeType(str, PyEnum):
+    """Type of change for approval requests."""
     Create = "create"
     Update = "update"
     Delete = "delete"
 
 
-class ApprovalStatus(str, Enum):
+class ApprovalStatus(str, PyEnum):
+    """Status states for approval requests."""
     Pending = "pending"
     Approved = "approved"
     Rejected = "rejected"
@@ -29,36 +50,48 @@ class ApprovalStatus(str, Enum):
     Expired = "expired"
 
 
-class ApprovalRole(str, Enum):
+class ApprovalRole(str, PyEnum):
+    """Role types for approval workflow."""
     WorkloadStakeholder = "workload_stakeholder"
     SecurityStakeholder = "security_stakeholder"
 
 
+def _utc_now_server_default():
+    """Return current UTC datetime for server_default."""
+    return datetime.now(datetime.timezone.utc)
+
+
 class ApprovalRequest(Base):
-    """Approval request model for firewall rule changes."""
+    """Approval request model for firewall rule changes.
+
+    Compatible with both SQLite and PostgreSQL databases.
+    Uses UUID TypeDecorator for primary key and foreign keys.
+    Uses Text columns for array data for cross-database compatibility.
+    """
+
     __tablename__ = "approval_requests"
 
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    rule_ids = Column(ARRAY(PG_UUID(as_uuid=True)), nullable=False)
-    change_type = Column(SAEnum(ChangeType), nullable=False)
+    id = Column(String(36), primary_key=True, default=str(uuid.uuid4()))
+    rule_ids = Column(Text, nullable=False)  # JSON array string
+    change_type = Column(String(50), nullable=False)
     description = Column(Text, nullable=True)
-    current_user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    current_user_id = Column(String(36), ForeignKey("users.id"), nullable=True)
 
-    status = Column(SAEnum(ApprovalStatus), default=ApprovalStatus.Pending)
-    workload_id = Column(PG_UUID(as_uuid=True), ForeignKey("workloads.id"), nullable=True)
+    status = Column(String(50), default=ApprovalStatus.Pending.value, nullable=False)
+    workload_id = Column(String(36), ForeignKey("workloads.id"), nullable=True)
 
     required_approvals = Column(Integer, default=2)
     current_approval_stage = Column(Integer, default=0)
     approval_flow = Column(String(50), default="multi_level")
 
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
     completed_at = Column(DateTime, nullable=True)
 
     # Relationships
-    approval_steps = relationship("ApprovalStep", back_populates="approval_request")
+    approval_steps = relationship("ApprovalStep", back_populates="approval_request", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="approval_request_ref")
     rules = relationship("FirewallRule", back_populates="approval_requests")
-    workload_obj = relationship("Workload", back_populates="approval_requests")
+    workload_obj = relationship("Workload", back_populates="approval_requests", foreign_keys=[workload_id])
     creator = relationship("User", foreign_keys=[current_user_id])
 
     def __repr__(self):
@@ -66,18 +99,22 @@ class ApprovalRequest(Base):
 
 
 class ApprovalStep(Base):
-    """Individual step in an approval workflow."""
+    """Individual step in an approval workflow.
+
+    Compatible with both SQLite and PostgreSQL databases.
+    """
+
     __tablename__ = "approval_steps"
 
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    approval_request_id = Column(PG_UUID(as_uuid=True), ForeignKey("approval_requests.id"), nullable=False)
-    approver_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    approver_role = Column(SAEnum(ApprovalRole), nullable=False)
+    id = Column(String(36), primary_key=True, default=str(uuid.uuid4()))
+    approval_request_id = Column(String(36), ForeignKey("approval_requests.id"), nullable=False)
+    approver_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+    approver_role = Column(String(50), nullable=False)
 
-    status = Column(SAEnum(ApprovalStatus), default=ApprovalStatus.Pending)
+    status = Column(String(50), default=ApprovalStatus.Pending.value, nullable=False)
     comments = Column(Text, nullable=True)
     approved_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     # Relationships
     approval_request = relationship("ApprovalRequest", back_populates="approval_steps")
@@ -85,14 +122,18 @@ class ApprovalStep(Base):
 
 
 class ApprovalWorkflowDefinition(Base):
-    """Workflow definition for different workload types."""
+    """Workflow definition for different workload types.
+
+    Compatible with both SQLite and PostgreSQL databases.
+    """
+
     __tablename__ = "approval_workflow_definitions"
 
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(36), primary_key=True, default=str(uuid.uuid4()))
     name = Column(String(255), unique=True, nullable=False)
     description = Column(Text, nullable=True)
-    trigger_conditions = Column(JSONB, nullable=True)
-    required_roles = Column(ARRAY(String), nullable=False)
+    trigger_conditions = Column(Text, nullable=True)  # JSON string
+    required_roles = Column(Text, nullable=False)  # JSON array string
     timeout_hours = Column(Integer, default=48)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)

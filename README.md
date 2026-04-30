@@ -101,21 +101,34 @@ docker build -t firewall-mgmt-frontend ./frontend
 
 ## Environment Variables
 
-```env
-# Backend
-DATABASE_URL=sqlite:///./firewall.db
-SECRET_KEY=your-secret-key
-DEBUG=true
-ALLOWED_HOSTS=http://localhost:8000
+Copy `.env.example` from the backend directory and configure your settings:
 
-# Azure/Entra ID
-AZURE_TENANT_ID=your-tenant-id
-AZURE_CLIENT_ID=your-client-id
-AZURE_CLIENT_SECRET=your-client-secret
-
-# Frontend
-API_BASE_URL=http://localhost:8000
+```bash
+cp backend/.env.example backend/.env
 ```
+
+### Required Variables
+
+```env
+# Azure Configuration
+AZURE_TENANT_ID=your-tenant-id-here
+AZURE_CLIENT_ID=your-client-id-here
+AZURE_CLIENT_SECRET=your-client-secret-here
+AZURE_SUBSCRIPTION_ID=your-subscription-id-here
+AZURE_RESOURCE_GROUP=your-resource-group-name
+
+# Database Configuration
+# Development (SQLite):
+DATABASE_URL=sqlite:///./firewall_mgmt.db
+
+# Production (PostgreSQL):
+# DATABASE_URL=postgresql://user:password@host:5432/firewall_mgmt
+
+# Security
+SECRET_KEY=your-secret-key-at-least-16-changes-in-production
+```
+
+For a complete list of configuration options, see `backend/.env.example`.
 
 ## API Documentation
 
@@ -159,6 +172,47 @@ ng lint
 # Build for production
 ng build --configuration production
 ```
+
+## Database Setup
+
+### Development (SQLite)
+
+The application uses SQLite by default for development. No additional setup is required:
+
+```bash
+# The default configuration uses SQLite
+DATABASE_URL=sqlite:///./firewall_mgmt.db
+```
+
+### Production (PostgreSQL)
+
+For production, configure PostgreSQL:
+
+```bash
+DATABASE_URL=postgresql://user:password@host:5432/firewall_mgmt
+```
+
+### Database Migrations
+
+The application uses Alembic for database migrations:
+
+```bash
+cd backend
+
+# Initialize Alembic (first time only)
+alembic init alembic
+
+# Create a new migration
+alembic revision --autogenerate -m "Add new table"
+
+# Apply migrations
+alembic upgrade head
+
+# Rollback last migration
+alembic downgrade -1
+```
+
+See `backend/README.md` for detailed migration instructions.
 
 ## Deployment to Azure
 
