@@ -1,0 +1,84 @@
+<div class="dashboard-container" *ngIf="!isLoading">
+  <div class="dashboard-header">
+    <div class="header-title">
+      <h1>Dashboard</h1>
+      <p>Overview of your system metrics and activities</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button color="primary" (click)="refreshData()">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+      <button
+        mat-flat-button
+        color="primary"
+        (click)="navigateToAction(quickActions[0])"
+      >
+        <mat-icon>add</mat-icon>
+        New Entry
+      </button>
+    </div>
+  </div>
+
+  <div class="dashboard-content">
+    <!-- Metrics Section -->
+    <section>
+      <h2>Key Metrics</h2>
+      <div class="metrics-grid">
+        <app-metric-card
+          *ngFor="let stat of stats"
+          [stat]="stat"
+          [trendIconFn]="getTrendIcon.bind(this)"
+          [trendColorFn]="getTrendColor.bind(this)"
+        ></app-metric-card>
+      </div>
+    </section>
+
+    <!-- Charts Section -->
+    <section>
+      <h2>Analytics</h2>
+      <div class="charts-grid">
+        <div class="chart-panel">
+          <app-chart-widget
+            [chartData]="chartData"
+            [chartTitle]="'Revenue Overview'"
+            [chartType]="'line'"
+            [chartColor]="'#2196F3'"
+          >
+          </app-chart-widget>
+        </div>
+        <div class="chart-panel">
+          <app-chart-widget
+            [chartData]="distributionData"
+            [chartTitle]="'Distribution'"
+            [chartType]="'doughnut'"
+          >
+          </app-chart-widget>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick Actions & Activity Feed Section -->
+    <section>
+      <div class="bottom-grid">
+        <app-quick-action-panel
+          [actions]="quickActions"
+          (actionClicked)="navigateToAction($event)"
+        >
+        </app-quick-action-panel>
+
+        <app-activity-feed
+          [activities]="activities"
+          [getActivityIcon]="getActivityIcon"
+          [formatTimestamp]="formatTimestamp.bind(this)"
+        >
+        </app-activity-feed>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="loading-overlay" *ngIf="isLoading">
+  <mat-spinner></mat-spinner>
+  <p>Loading dashboard data...</p>
+</div>

@@ -1,0 +1,25 @@
+<div class="quick-action-panel">
+  <div class="panel-header">
+    <h3>Quick Actions</h3>
+    <span class="action-count">{{ actions?.length || 0 }} actions</span>
+  </div>
+
+  <div class="actions-grid">
+    <div
+      class="action-card"
+      *ngFor="let action of actions"
+      (click)="onActionClick(action)"
+    >
+      <div class="action-icon">
+        <mat-icon>{{ action.icon }}</mat-icon>
+      </div>
+      <div class="action-content">
+        <div class="action-label">{{ action.label }}</div>
+        <div class="action-description">{{ action.description }}</div>
+      </div>
+      <div class="action-arrow">
+        <mat-icon>arrow_forward</mat-icon>
+      </div>
+    </div>
+  </div>
+</div>

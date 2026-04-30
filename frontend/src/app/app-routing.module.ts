@@ -7,6 +7,11 @@ import { LogoutComponent } from './modules/auth/logout/logout.component';
 const routes: Routes = [
     { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
     {
+        path: 'dashboard',
+        canActivate: [AuthGuard],
+        loadChildren: () => import('./modules/dashboard/dashboard.module').then(m => m.DashboardModule)
+    },
+    {
         path: 'rules',
         canActivate: [AuthGuard],
         loadChildren: () => import('./modules/rules/rules.module').then(m => m.RulesModule)

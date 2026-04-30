@@ -1,0 +1,101 @@
+.quick-action-panel {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    padding: 20px;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.panel-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #212121;
+    margin: 0;
+}
+
+.action-count {
+    font-size: 12px;
+    color: #757575;
+    background: #f5f5f5;
+    padding: 4px 8px;
+    border-radius: 12px;
+}
+
+.actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.action-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-card:hover {
+    border-color: #2196F3;
+    background: #f5f9ff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.15);
+}
+
+.action-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: #e3f2fd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.action-icon mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: #2196F3;
+}
+
+.action-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.action-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #212121;
+    margin-bottom: 2px;
+}
+
+.action-description {
+    font-size: 11px;
+    color: #757575;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.action-arrow {
+    flex-shrink: 0;
+}
+
+.action-arrow mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: #bbb;
+}
