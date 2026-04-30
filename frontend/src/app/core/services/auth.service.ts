@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, BehaviorSubject, tap } from 'rxjs';
+import { Subject } from 'rxjs';
 
 export interface UserInfo {
     object_id: string;
@@ -64,5 +65,30 @@ export class AuthService {
 
     hasPermission(permission: string): boolean {
         return this.hasRole(permission);
+    }
+
+    /**
+     * Observable for authentication errors.
+     * Components can subscribe to handle auth-specific actions.
+     */
+    readonly authError$ = new Subject<void>();
+
+    /**
+     * Observable version of isLoggedIn for template use.
+     */
+    get isLoggedIn$(): Observable<boolean> {
+        return this.user$.pipe(
+            tap(user => {
+                // Triggered on subscription for template async pipe compatibility
+            })
+        );
+    }
+
+    /**
+     * Handle authentication error.
+     */
+    handleAuthError(): void {
+        this.logout();
+        this.authError$.next();
     }
 }

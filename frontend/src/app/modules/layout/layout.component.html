@@ -1,0 +1,232 @@
+<div
+  class="app-layout"
+  [class.sidenav-collapsed]="isSidenavCollapsed"
+  [class.dark-theme]="themeService.isDarkTheme"
+>
+  <!-- Side Navigation -->
+  <mat-sidenav-container class="sidenav-container">
+    <mat-sidenav
+      #sidenav
+      [mode]="isMobile ? 'over' : 'side'"
+      [opened]="!isMobile"
+      [autoFocusNavigationLinks]="false"
+      class="app-sidenav"
+      [class.collapsed]="isSidenavCollapsed"
+    >
+      <!-- Branding Header -->
+      <div class="sidenav-header">
+        <div class="brand-logo">
+          <mat-icon>shield</mat-icon>
+          <span class="brand-title" [class.hidden]="isSidenavCollapsed"
+            >Firewall Manager</span
+          >
+        </div>
+        <button
+          mat-icon-button
+          class="collapse-btn"
+          (click)="toggleSidenav()"
+          [attr.aria-label]="
+            isSidenavCollapsed ? 'Expand navigation' : 'Collapse navigation'
+          "
+        >
+          <mat-icon>{{
+            isSidenavCollapsed ? "chevron_right" : "chevron_left"
+          }}</mat-icon>
+        </button>
+      </div>
+
+      <!-- Navigation Menu -->
+      <nav class="sidenav-nav">
+        <div class="nav-section">
+          <div class="nav-section-title" [class.hidden]="isSidenavCollapsed">
+            Main
+          </div>
+          <a
+            mat-row-link
+            routerLink="/dashboard"
+            routerLinkActive="active"
+            class="nav-item"
+            [class.hidden]="isSidenavCollapsed"
+          >
+            <mat-icon>dashboard</mat-icon>
+            <span class="nav-label">Dashboard</span>
+          </a>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-title" [class.hidden]="isSidenavCollapsed">
+            Management
+          </div>
+          <a
+            mat-row-link
+            routerLink="/rules"
+            routerLinkActive="active"
+            class="nav-item"
+            [class.hidden]="isSidenavCollapsed"
+          >
+            <mat-icon>dns</mat-icon>
+            <span class="nav-label">Rules</span>
+          </a>
+          <a
+            mat-row-link
+            routerLink="/approvals"
+            routerLinkActive="active"
+            class="nav-item"
+            [class.hidden]="isSidenavCollapsed"
+          >
+            <mat-icon>approval</mat-icon>
+            <span class="nav-label">Approvals</span>
+          </a>
+          <a
+            mat-row-link
+            routerLink="/audit"
+            routerLinkActive="active"
+            class="nav-item"
+            [class.hidden]="isSidenavCollapsed"
+          >
+            <mat-icon>history</mat-icon>
+            <span class="nav-label">Audit Log</span>
+          </a>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-title" [class.hidden]="isSidenavCollapsed">
+            Resources
+          </div>
+          <a
+            mat-row-link
+            routerLink="/workloads"
+            routerLinkActive="active"
+            class="nav-item"
+            [class.hidden]="isSidenavCollapsed"
+          >
+            <mat-icon>cloud</mat-icon>
+            <span class="nav-label">Workloads</span>
+          </a>
+        </div>
+      </nav>
+
+      <!-- Bottom Section -->
+      <div class="sidenav-footer">
+        <div class="theme-toggle">
+          <button
+            mat-button
+            class="theme-switch-btn"
+            (click)="toggleTheme()"
+            [attr.aria-label]="
+              themeService.isDarkTheme
+                ? 'Switch to light theme'
+                : 'Switch to dark theme'
+            "
+          >
+            <mat-icon>{{
+              themeService.isDarkTheme ? "light_mode" : "dark_mode"
+            }}</mat-icon>
+            <span [class.hidden]="isSidenavCollapsed">
+              {{ themeService.isDarkTheme ? "Light Mode" : "Dark Mode" }}
+            </span>
+          </button>
+        </div>
+        <div
+          class="user-section"
+          *ngIf="authService.isLoggedIn$ | async as isLoggedIn"
+        >
+          <div class="user-avatar" *ngIf="isLoggedIn; else guestAvatar">
+            <mat-icon>person</mat-icon>
+          </div>
+          <ng-template #guestAvatar>
+            <div class="user-avatar guest">
+              <mat-icon>person_outline</mat-icon>
+            </div>
+          </ng-template>
+          <div class="user-info" [class.hidden]="isSidenavCollapsed">
+            <span class="user-name" *ngIf="isLoggedIn">User</span>
+            <span class="user-status">{{
+              isLoggedIn ? "Online" : "Guest"
+            }}</span>
+          </div>
+        </div>
+      </div>
+    </mat-sidenav>
+
+    <!-- Main Content Area -->
+    <mat-sidenav-content class="main-content">
+      <!-- Top Header Bar -->
+      <header class="top-bar">
+        <div class="top-bar-left">
+          <button
+            mat-icon-button
+            class="menu-toggle"
+            (click)="sidenav.toggle()"
+            *ngIf="isMobile"
+            [attr.aria-label]="sidenav.opened ? 'Close menu' : 'Open menu'"
+          >
+            <mat-icon>menu</mat-icon>
+          </button>
+          <h1 class="page-title">
+            <ng-container *ngIf="title$ | async as title; else defaultTitle">
+              {{ title }}
+            </ng-container>
+            <ng-template #defaultTitle> Firewall Manager </ng-template>
+          </h1>
+        </div>
+        <div class="top-bar-right">
+          <button
+            mat-icon-button
+            class="theme-toggle-icon"
+            (click)="toggleTheme()"
+            [attr.aria-label]="
+              themeService.isDarkTheme
+                ? 'Switch to light theme'
+                : 'Switch to dark theme'
+            "
+          >
+            <mat-icon>{{
+              themeService.isDarkTheme ? "light_mode" : "dark_mode"
+            }}</mat-icon>
+          </button>
+          <button
+            mat-icon-button
+            [matMenuTriggerFor]="userMenu"
+            aria-label="User menu"
+          >
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #userMenu="matMenu">
+            <ng-container
+              *ngIf="authService.isLoggedIn$ | async; else guestMenu"
+            >
+              <button mat-menu-item (click)="navigateToProfile()">
+                <mat-icon>person</mat-icon>
+                <span>Profile</span>
+              </button>
+              <button mat-menu-item (click)="navigateToSettings()">
+                <mat-icon>settings</mat-icon>
+                <span>Settings</span>
+              </button>
+              <mat-divider></mat-divider>
+              <button mat-menu-item (click)="logout()">
+                <mat-icon>logout</mat-icon>
+                <span>Logout</span>
+              </button>
+            </ng-container>
+            <ng-template #guestMenu>
+              <button mat-menu-item (click)="navigateToLogin()">
+                <mat-icon>login</mat-icon>
+                <span>Login</span>
+              </button>
+            </ng-template>
+          </mat-menu>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="content-area">
+        <router-outlet></router-outlet>
+      </main>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+</div>
+
+<!-- Global Error Notification -->
+<app-error-notification></app-error-notification>

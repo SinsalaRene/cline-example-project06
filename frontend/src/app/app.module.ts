@@ -1,7 +1,7 @@
-import { NgModule } from '@angular/core';
+import { NgModule, Provider } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
-import { HttpClientModule } from '@angular/common/http';
+import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule } from '@angular/material/paginator';
@@ -27,6 +27,16 @@ import { LayoutModule } from './modules/layout.module';
 import { SharedModule } from './shared/shared.module';
 import { CoreService } from './core/services/api.service';
 import { AuthService } from './core/services/auth.service';
+import { ErrorHandlerService } from './core/services/error-handler.service';
+import { ThemeService } from './core/services/theme.service';
+import { HttpRequestInterceptor } from './core/interceptors/http-request.interceptor';
+import { HttpErrorInterceptor } from './core/interceptors/http-error.interceptor';
+
+/** HTTP interceptor providers configuration */
+const HTTP_INTERCEPTOR_PROVIDERS: Provider[] = [
+    { provide: HTTP_INTERCEPTORS, useClass: HttpRequestInterceptor, multi: true },
+    { provide: HTTP_INTERCEPTORS, useClass: HttpErrorInterceptor, multi: true },
+];
 
 @NgModule({
     declarations: [
@@ -63,6 +73,9 @@ import { AuthService } from './core/services/auth.service';
     providers: [
         CoreService,
         AuthService,
+        ErrorHandlerService,
+        ThemeService,
+        ...HTTP_INTERCEPTOR_PROVIDERS
     ],
     bootstrap: [AppComponent],
 })
