@@ -1,0 +1,77 @@
+<mat-sidenav-container class="sidenav-container">
+  <mat-sidenav
+    #sidenav
+    [mode]="isHandset | async"
+    [opened]="!isHandset | async"
+    class="mat-app-background"
+  >
+    <mat-nav-list class="sidebar-nav">
+      <a
+        mat-list-item
+        routerLink="/"
+        class="nav-item"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+      >
+      </a>
+      <a
+        mat-list-item
+        routerLink="/rules"
+        class="nav-item"
+        routerLinkActive="active"
+      >
+        <mat-icon svgIcon="firewall"></mat-icon>
+        <span class="nav-text">Firewall Rules</span>
+      </a>
+      <a
+        mat-list-item
+        routerLink="/approvals"
+        class="nav-item"
+        routerLinkActive="active"
+      >
+        <mat-icon svgIcon="approval"></mat-icon>
+        <span class="nav-text">Approvals</span>
+      </a>
+      <a
+        mat-list-item
+        routerLink="/workloads"
+        class="nav-item"
+        routerLinkActive="active"
+      >
+        <mat-icon svgIcon="workload"></mat-icon>
+        <span class="nav-text">Workloads</span>
+      </a>
+      <a
+        mat-list-item
+        routerLink="/audit"
+        class="nav-item"
+        routerLinkActive="active"
+      >
+        <mat-icon svgIcon="audit"></mat-icon>
+        <span class="nav-text">Audit</span>
+      </a>
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <mat-toolbar color="primary">
+      <button
+        type="button"
+        aria-label="Toggle sidenav"
+        mat-icon-button
+        (click)="sidenav.toggle()"
+      >
+        <mat-icon>menu</mat-icon>
+      </button>
+      <span class="toolbar-title">Azure Firewall Manager</span>
+      <span class="flex-grow"></span>
+      <button mat-button (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        <span>Logout</span>
+      </button>
+    </mat-toolbar>
+    <main class="main-content">
+      <router-outlet></router-outlet>
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>
