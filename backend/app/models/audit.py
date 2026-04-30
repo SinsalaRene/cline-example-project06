@@ -27,11 +27,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship, declarative_base
 
-from app.models.firewall_rule import Base
+from app.models.firewall_rule import Base, UUID
 
-if TYPE_CHECKING:
-    from app.models.approval import ApprovalRequest, ApprovalStep
-    from app.models.firewall_rule import Workload
+# Import models we need for relationships
+import app.models.approval as approval_module
 
 
 class AuditAction(str, PyEnum):
@@ -59,8 +58,9 @@ class AuditLog(Base):
 
     __tablename__ = "audit_logs"
 
-    id = Column(String(36), primary_key=True, default=str(uuid.uuid4()))
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+    id = Column(UUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID, ForeignKey("users.id"), nullable=True)
+    approval_request_id = Column(UUID, ForeignKey("approval_requests.id"), nullable=True)
     action = Column(String(100), nullable=False)
     resource_type = Column(String(50), nullable=False)
     resource_id = Column(Text, nullable=True)
@@ -83,11 +83,12 @@ class User(Base):
     """User model synced from Entra ID.
 
     Compatible with both SQLite and PostgreSQL databases.
+    Uses UUID TypeDecorator for cross-database compatibility.
     """
 
     __tablename__ = "users"
 
-    id = Column(String(36), primary_key=True, default=str(uuid.uuid4()))
+    id = Column(UUID, primary_key=True, default=uuid.uuid4)
     object_id = Column(String(36), unique=True, nullable=False, index=True)  # Entra ID object ID
     email = Column(String(255), unique=True, nullable=False)
     display_name = Column(String(255), nullable=False)
@@ -97,41 +98,40 @@ class User(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    # Relationships
-    owned_workloads = relationship("Workload", foreign_keys=[Workload.owner_id], back_populates="owner")
-    assigned_roles = relationship("UserRole", back_populates="user")
+    # Relationships - using string references to avoid circular imports
+    owned_workloads = relationship("Workload", foreign_keys="[Workload.owner_id]", back_populates="owner")
+    assigned_roles = relationship("UserRole", foreign_keys="[UserRole.user_id]", back_populates="user")
+    granted_roles = relationship("UserRole", foreign_keys="[UserRole.granted_by]", back_populates="granter")
     audit_logs = relationship("AuditLog", back_populates="user")
-    approval_requests_created = relationship("ApprovalRequest", foreign_keys=[ApprovalRequest.current_user_id])
-    approved_steps = relationship("ApprovalStep", foreign_keys=[ApprovalStep.approver_id])
-
-    # Import ApprovalStep here to reference it (avoids circular import)
-    # Approved steps are stored in the approval_steps table
+    approval_requests_created = relationship(
+        "ApprovalRequest", foreign_keys="[ApprovalRequest.current_user_id]", overlaps="creator"
+    )
+    approved_steps = relationship(
+        "ApprovalStep", foreign_keys="[ApprovalStep.approver_id]", overlaps="approver"
+    )
 
 
 class UserRole(Base):
     """User role assignment model.
 
     Compatible with both SQLite and PostgreSQL databases.
+    Uses UUID TypeDecorator for cross-database compatibility.
     """
 
     __tablename__ = "user_roles"
 
-    id = Column(String(36), primary_key=True, default=str(uuid.uuid4()))
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    id = Column(UUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID, ForeignKey("users.id"), nullable=False)
     role = Column(String(100), nullable=False)  # owner, admin, developer, security_reader, network_admin
     workload_id = Column(String(36), ForeignKey("workloads.id"), nullable=True)
-    granted_by = Column(String(36), ForeignKey("users.id"), nullable=True)
+    granted_by = Column(UUID, ForeignKey("users.id"), nullable=True)
     granted_at = Column(DateTime, server_default=func.now(), nullable=False)
     expires_at = Column(DateTime, nullable=True)
 
     # Relationships
     user = relationship("User", foreign_keys=[user_id], back_populates="assigned_roles")
     workload = relationship("Workload", back_populates="user_roles")
-    granter = relationship("User", foreign_keys=[granted_by])
+    granter = relationship("User", foreign_keys=[granted_by], back_populates="granted_roles")
 
     def __repr__(self):
         return f"<UserRole(id={self.id}, user_id={self.user_id}, role={self.role})>"
-
-
-# Import ApprovalStep at module level for the User model relationship
-from app.models.approval import ApprovalStep  # noqa: E402

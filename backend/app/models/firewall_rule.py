@@ -104,7 +104,7 @@ class Workload(Base):
     id = Column(UUID, primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False, unique=True)
     description = Column(Text, nullable=True)
-    owner_id = Column(UUID, nullable=True)
+    owner_id = Column(UUID, ForeignKey("users.id"), nullable=True)
     resource_groups = Column(Text, nullable=True)  # JSON string
     subscriptions = Column(Text, nullable=True)  # JSON string
     created_at = Column(DateTime, default=_utc_now, nullable=False)
@@ -112,9 +112,9 @@ class Workload(Base):
 
     # Relationships
     rules = relationship("FirewallRule", back_populates="workload", cascade="all, delete-orphan")
-    approval_requests = relationship("ApprovalRequest", back_populates="workload_obj", cascade="all, delete-orphan", outerjoin=False)
+    approval_requests = relationship("ApprovalRequest", back_populates="workload_obj", cascade="all, delete-orphan")
     owner = relationship("User", foreign_keys=[owner_id], back_populates="owned_workloads")
-    user_roles = relationship("UserRole", back_populates="workload", cascade="all, delete-orphan", outerjoin=False)
+    user_roles = relationship("UserRole", back_populates="workload", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Workload(name={self.name!r})>"
@@ -150,7 +150,6 @@ class FirewallRule(Base):
 
     # Relationships
     workload = relationship("Workload", back_populates="rules")
-    approval_requests = relationship("ApprovalRequest", back_populates="rules")
 
     def __repr__(self):
         return f"<FirewallRule(name={self.rule_collection_name!r}, priority={self.priority})>"

@@ -24,10 +24,21 @@ from sqlalchemy import (
     Text,
     Boolean,
     func,
+    Table,
+    MetaData,
 )
 from sqlalchemy.orm import relationship, declarative_base
 
-from app.models.firewall_rule import Base
+from app.models.firewall_rule import Base, UUID
+
+# Association table for many-to-many between ApprovalRequest and FirewallRule
+approval_rule_associations = Table(
+    "approval_rule_associations",
+    Base.metadata,
+    Column("id", UUID, primary_key=True, default=uuid.uuid4),
+    Column("approval_request_id", UUID, ForeignKey("approval_requests.id"), nullable=False),
+    Column("firewall_rule_id", UUID, ForeignKey("firewall_rules.id"), nullable=False),
+)
 
 if TYPE_CHECKING:
     from app.models.audit import AuditLog
@@ -71,14 +82,14 @@ class ApprovalRequest(Base):
 
     __tablename__ = "approval_requests"
 
-    id = Column(String(36), primary_key=True, default=str(uuid.uuid4()))
+    id = Column(UUID, primary_key=True, default=uuid.uuid4)
     rule_ids = Column(Text, nullable=False)  # JSON array string
     change_type = Column(String(50), nullable=False)
     description = Column(Text, nullable=True)
-    current_user_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+    current_user_id = Column(UUID, ForeignKey("users.id"), nullable=True)
 
     status = Column(String(50), default=ApprovalStatus.Pending.value, nullable=False)
-    workload_id = Column(String(36), ForeignKey("workloads.id"), nullable=True)
+    workload_id = Column(UUID, ForeignKey("workloads.id"), nullable=True)
 
     required_approvals = Column(Integer, default=2)
     current_approval_stage = Column(Integer, default=0)
@@ -90,9 +101,9 @@ class ApprovalRequest(Base):
     # Relationships
     approval_steps = relationship("ApprovalStep", back_populates="approval_request", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="approval_request_ref")
-    rules = relationship("FirewallRule", back_populates="approval_requests")
+    rules = relationship("FirewallRule", secondary="approval_rule_associations", viewonly=True)
     workload_obj = relationship("Workload", back_populates="approval_requests", foreign_keys=[workload_id])
-    creator = relationship("User", foreign_keys=[current_user_id])
+    creator = relationship("User", foreign_keys=[current_user_id], back_populates="approval_requests_created")
 
     def __repr__(self):
         return f"<ApprovalRequest(id={self.id}, status={self.status})>"
@@ -102,13 +113,14 @@ class ApprovalStep(Base):
     """Individual step in an approval workflow.
 
     Compatible with both SQLite and PostgreSQL databases.
+    Uses UUID TypeDecorator for primary key and foreign keys.
     """
 
     __tablename__ = "approval_steps"
 
-    id = Column(String(36), primary_key=True, default=str(uuid.uuid4()))
-    approval_request_id = Column(String(36), ForeignKey("approval_requests.id"), nullable=False)
-    approver_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+    id = Column(UUID, primary_key=True, default=uuid.uuid4)
+    approval_request_id = Column(UUID, ForeignKey("approval_requests.id"), nullable=False)
+    approver_id = Column(UUID, ForeignKey("users.id"), nullable=True)
     approver_role = Column(String(50), nullable=False)
 
     status = Column(String(50), default=ApprovalStatus.Pending.value, nullable=False)
@@ -118,18 +130,19 @@ class ApprovalStep(Base):
 
     # Relationships
     approval_request = relationship("ApprovalRequest", back_populates="approval_steps")
-    approver = relationship("User", foreign_keys=[approver_id])
+    approver = relationship("User", foreign_keys=[approver_id], back_populates="approved_steps")
 
 
 class ApprovalWorkflowDefinition(Base):
     """Workflow definition for different workload types.
 
     Compatible with both SQLite and PostgreSQL databases.
+    Uses UUID TypeDecorator for primary key.
     """
 
     __tablename__ = "approval_workflow_definitions"
 
-    id = Column(String(36), primary_key=True, default=str(uuid.uuid4()))
+    id = Column(UUID, primary_key=True, default=uuid.uuid4)
     name = Column(String(255), unique=True, nullable=False)
     description = Column(Text, nullable=True)
     trigger_conditions = Column(Text, nullable=True)  # JSON string
