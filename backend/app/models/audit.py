@@ -107,7 +107,10 @@ class User(Base):
         "ApprovalRequest", foreign_keys="[ApprovalRequest.current_user_id]", overlaps="creator"
     )
     approved_steps = relationship(
-        "ApprovalStep", foreign_keys="[ApprovalStep.approver_id]", overlaps="approver"
+        "ApprovalStep", foreign_keys="[ApprovalStep.approver_id]", overlaps="approver, approval_comments"
+    )
+    approval_comments = relationship(
+        "ApprovalComment", foreign_keys="[ApprovalComment.user_id]", back_populates="user"
     )
 
 

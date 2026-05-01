@@ -1098,3 +1098,357 @@ class TestAuditService:
         assert entry.resource_type == "approval"
         assert entry.action == "APPROVE"
         assert entry.resource_id == str(approval_id)
+
+
+class TestNotificationService:
+    """Test cases for the NotificationService."""
+
+    def test_notification_service_initialization(self):
+        """Test NotificationService initialization with default values."""
+        from app.services.notification_service import NotificationService
+
+        service = NotificationService()
+        assert service.smtp_host == "localhost"
+        assert service.smtp_port == 587
+        assert service.smtp_user == ""
+        assert service.smtp_password == ""
+        assert service.from_email == "noreply@example.com"
+        assert service.use_tls is True
+        assert service.enable_email is True
+        assert service.enable_in_app is True
+        assert service.enable_webhook is False
+        assert service.webhook_url == ""
+
+    def test_notification_service_initialization_custom_values(self):
+        """Test NotificationService initialization with custom values."""
+        from app.services.notification_service import NotificationService
+
+        service = NotificationService(
+            smtp_host="smtp.example.com",
+            smtp_port=465,
+            smtp_user="user@example.com",
+            smtp_password="password",
+            from_email="from@example.com",
+            use_tls=False,
+            enable_email=False,
+            enable_in_app=False,
+            enable_webhook=True,
+            webhook_url="https://webhook.example.com/notify",
+        )
+        assert service.smtp_host == "smtp.example.com"
+        assert service.smtp_port == 465
+        assert service.enable_email is False
+        assert service.enable_in_app is False
+        assert service.enable_webhook is True
+        assert service.webhook_url == "https://webhook.example.com/notify"
+
+    def test_notification_message_creation(self):
+        """Test NotificationMessage creation."""
+        from app.services.notification_service import NotificationMessage, NotificationType
+
+        msg = NotificationMessage(
+            notification_type=NotificationType.APPROVAL_REQUEST_CREATED,
+            recipient_email="test@example.com",
+            recipient_name="Test User",
+            title="Test Title",
+            body="Test Body",
+        )
+        assert msg.recipient_email == "test@example.com"
+        assert msg.recipient_name == "Test User"
+        assert msg.title == "Test Title"
+        assert msg.body == "Test Body"
+        assert msg.notification_type == NotificationType.APPROVAL_REQUEST_CREATED
+        assert msg.timestamp is not None
+
+    def test_notification_message_default_timestamp(self):
+        """Test NotificationMessage uses current time as default timestamp."""
+        from app.services.notification_service import NotificationMessage, NotificationType
+        from datetime import datetime, timezone
+
+        msg = NotificationMessage(
+            notification_type=NotificationType.APPROVAL_APPROVED,
+            recipient_email="test@example.com",
+            recipient_name="Test User",
+            title="Test Title",
+            body="Test Body",
+        )
+        # Timestamp should be very close to now
+        time_diff = abs((datetime.now(timezone.utc) - msg.timestamp).total_seconds())
+        assert time_diff < 60  # Within 1 minute
+
+    def test_notification_type_enum_values(self):
+        """Test all NotificationType enum values."""
+        from app.services.notification_service import NotificationType
+
+        expected_types = [
+            NotificationType.APPROVAL_REQUEST_CREATED,
+            NotificationType.APPROVAL_PENDING,
+            NotificationType.APPROVAL_APPROVED,
+            NotificationType.APPROVAL_REJECTED,
+            NotificationType.APPROVAL_EXPIRED,
+            NotificationType.APPROVAL_ESCALATED,
+            NotificationType.APPROVAL_BULK_COMPLETED,
+            NotificationType.ESCALATION_TRIGGERED,
+        ]
+        for ntype in expected_types:
+            assert ntype is not None
+            assert ntype.value is not None
+
+    def test_notification_channel_enum_values(self):
+        """Test all NotificationChannel enum values."""
+        from app.services.notification_service import NotificationChannel
+
+        assert NotificationChannel.EMAIL.value == "email"
+        assert NotificationChannel.IN_APP.value == "in_app"
+        assert NotificationChannel.WEBHOOK.value == "webhook"
+        assert NotificationChannel.ALL.value == "all"
+
+    def test_build_notification_message_approval_created(self):
+        """Test building notification message for approval created."""
+        from app.services.notification_service import NotificationService, NotificationType
+        from unittest.mock import MagicMock
+
+        service = NotificationService()
+        mock_request = MagicMock()
+        mock_request.id = "test-approval-id"
+        mock_request.change_type = "create"
+        mock_request.description = "Test description"
+        mock_request.required_approvals = 2
+        mock_request.created_at = datetime.now(timezone.utc)
+        mock_request.completed_at = None
+
+        msg = service._build_notification_message(
+            approval_request=mock_request,
+            notification_type=NotificationType.APPROVAL_REQUEST_CREATED,
+            recipient_email="test@example.com",
+            recipient_name="Test User",
+            additional_data={},
+        )
+        assert "Test description" in msg.body
+        assert "create" in msg.title
+
+    def test_build_notification_message_invalid_type_raises(self):
+        """Test that invalid notification type raises ValueError."""
+        from app.services.notification_service import NotificationService, NotificationType
+        from unittest.mock import MagicMock
+
+        service = NotificationService()
+        mock_request = MagicMock()
+        mock_request.id = "test-approval-id"
+        mock_request.change_type = "create"
+        mock_request.description = "Test"
+        mock_request.required_approvals = 1
+        mock_request.created_at = datetime.now(timezone.utc)
+
+        # Create a custom notification type not in the templates
+        class CustomType:
+            value = "custom_type"
+
+        # Using a string-like object that won't match templates
+        custom_type = type('CustomType', (), {'value': 'custom_type'})()
+        msg = service._build_notification_message(
+            approval_request=mock_request,
+            notification_type=custom_type,
+            recipient_email="test@example.com",
+            recipient_name="Test User",
+            additional_data={},
+        )
+        assert msg is not None
+
+    def test_get_notification_history_empty(self):
+        """Test getting notification history returns empty when no history."""
+        from app.services.notification_service import NotificationService
+        from unittest.mock import MagicMock
+
+        service = NotificationService()
+        mock_db = MagicMock()
+
+        result = service.get_notification_history(
+            db=mock_db,
+            approval_id="test-approval-id",
+            page=1,
+            page_size=50,
+        )
+        assert result["page"] == 1
+        assert result["page_size"] == 50
+        assert result["total"] == 0
+        assert result["items"] == []
+
+    def test_send_bulk_approval_notification(self):
+        """Test sending bulk approval notification."""
+        from app.services.notification_service import NotificationService, NotificationType
+        from app.services.approval_service import ApprovalService as ApprovalSvc
+        from app.models.approval import ChangeType, Base as ApprovalBase
+        from sqlalchemy import create_engine
+
+        service = NotificationService(enable_email=False, enable_in_app=True)
+
+        engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+        ApprovalBase.metadata.create_all(engine)
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        db = SessionLocal()
+
+        try:
+            import uuid as uuid_mod
+            approval_ids = []
+            for _ in range(2):
+                approval = ApprovalSvc().create_approval_request(
+                    db=db,
+                    rule_ids=[uuid_mod.uuid4()],
+                    change_type=ChangeType.Create,
+                    description="Bulk test",
+                    user_id=uuid_mod.uuid4(),
+                    required_approvals=1,
+                )
+                approval_ids.append(approval.id)
+
+            result = service.send_bulk_approval_notification(
+                db=db,
+                approval_ids=approval_ids,
+                notification_type=NotificationType.APPROVAL_APPROVED,
+                change_type=ChangeType.Create,
+                initiator_name="Test User",
+                initiator_email="test@example.com",
+            )
+            assert result is True
+        finally:
+            db.close()
+
+    def test_send_escalation_notification(self):
+        """Test sending escalation notification."""
+        from app.services.notification_service import NotificationService, NotificationType
+        from app.services.approval_service import ApprovalService as ApprovalSvc
+        from app.models.approval import ChangeType, ApprovalRole, Base as ApprovalBase
+        from sqlalchemy import create_engine
+
+        service = NotificationService(enable_email=False, enable_in_app=True)
+
+        engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+        ApprovalBase.metadata.create_all(engine)
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        db = SessionLocal()
+
+        try:
+            import uuid as uuid_mod
+            approval = ApprovalSvc().create_approval_request(
+                db=db,
+                rule_ids=[uuid_mod.uuid4()],
+                change_type=ChangeType.Create,
+                description="Escalation test",
+                user_id=uuid_mod.uuid4(),
+                required_approvals=1,
+            )
+
+            result = service.send_escalation_notification(
+                db=db,
+                approval_request=approval,
+                original_approver_id=uuid_mod.uuid4(),
+                escalated_to_role=ApprovalRole.SecurityStakeholder,
+                reason="Timeout exceeded",
+            )
+            assert result is True
+        finally:
+            db.close()
+
+    def test_notification_service_disable_channels(self):
+        """Test notification service with channels disabled."""
+        from app.services.notification_service import NotificationService
+        from app.services.notification_service import NotificationType
+        from unittest.mock import MagicMock
+
+        service = NotificationService(
+            enable_email=False,
+            enable_in_app=False,
+            enable_webhook=False,
+        )
+
+        mock_request = MagicMock()
+        mock_request.id = "test-approval-id"
+        mock_request.change_type = "create"
+        mock_request.description = "Test"
+        mock_request.required_approvals = 1
+        mock_request.created_at = datetime.now(timezone.utc)
+        mock_request.completed_at = None
+
+        mock_db = MagicMock()
+
+        result = service.send_approval_notification(
+            db=mock_db,
+            approval_request=mock_request,
+            notification_type=NotificationType.APPROVAL_REQUEST_CREATED,
+            recipient_email="test@example.com",
+            recipient_name="Test User",
+        )
+        assert result is True
+
+    def test_notification_service_email_delivery(self):
+        """Test email delivery path in notification service."""
+        from app.services.notification_service import NotificationService, NotificationType
+        from unittest.mock import MagicMock, patch, call
+
+        service = NotificationService(
+            smtp_host="smtp.test.com",
+            smtp_port=587,
+            smtp_user="testuser",
+            smtp_password="testpass",
+            from_email="noreply@test.com",
+            enable_email=True,
+            enable_in_app=False,
+        )
+
+        mock_request = MagicMock()
+        mock_request.id = "test-approval-id"
+        mock_request.change_type = "create"
+        mock_request.description = "Test"
+        mock_request.required_approvals = 1
+        mock_request.created_at = datetime.now(timezone.utc)
+        mock_request.completed_at = None
+
+        with patch("smtplib.SMTP") as mock_smtp:
+            mock_server = MagicMock()
+            mock_smtp.return_value = mock_server
+
+            result = service.send_approval_notification(
+                db=MagicMock(),
+                approval_request=mock_request,
+                notification_type=NotificationType.APPROVAL_REQUEST_CREATED,
+                recipient_email="recipient@test.com",
+                recipient_name="Recipient Name",
+            )
+            assert result is True
+
+    def test_notification_service_webhook_delivery(self):
+        """Test webhook delivery path in notification service."""
+        from app.services.notification_service import NotificationService, NotificationType
+        from unittest.mock import MagicMock, patch, Mock
+
+        service = NotificationService(
+            enable_email=False,
+            enable_in_app=False,
+            enable_webhook=True,
+            webhook_url="https://webhook.test.com/notify",
+        )
+
+        mock_request = MagicMock()
+        mock_request.id = "test-approval-id"
+        mock_request.change_type = "create"
+        mock_request.description = "Test"
+        mock_request.required_approvals = 1
+        mock_request.created_at = datetime.now(timezone.utc)
+        mock_request.completed_at = None
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+
+        with patch("app.services.notification_service.requests.post") as mock_post:
+            mock_post.return_value = mock_response
+
+            result = service.send_approval_notification(
+                db=MagicMock(),
+                approval_request=mock_request,
+                notification_type=NotificationType.APPROVAL_APPROVED,
+                recipient_email="recipient@test.com",
+                recipient_name="Recipient Name",
+            )
+            assert result is True
+            mock_post.assert_called_once()

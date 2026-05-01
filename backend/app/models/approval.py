@@ -100,6 +100,7 @@ class ApprovalRequest(Base):
 
     # Relationships
     approval_steps = relationship("ApprovalStep", back_populates="approval_request", cascade="all, delete-orphan")
+    comments = relationship("ApprovalComment", back_populates="approval_request", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="approval_request_ref")
     rules = relationship("FirewallRule", secondary="approval_rule_associations", viewonly=True)
     workload_obj = relationship("Workload", back_populates="approval_requests", foreign_keys=[workload_id])
@@ -150,3 +151,27 @@ class ApprovalWorkflowDefinition(Base):
     timeout_hours = Column(Integer, default=48)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class ApprovalComment(Base):
+    """Comment model for approval requests.
+
+    Allows users to add comments to approval requests for audit trail.
+    Compatible with both SQLite and PostgreSQL databases.
+    Uses UUID TypeDecorator for primary key and foreign keys.
+    """
+
+    __tablename__ = "approval_comments"
+
+    id = Column(UUID, primary_key=True, default=uuid.uuid4)
+    approval_request_id = Column(UUID, ForeignKey("approval_requests.id"), nullable=False)
+    user_id = Column(UUID, ForeignKey("users.id"), nullable=False)
+    comment = Column(Text, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    # Relationships
+    approval_request = relationship("ApprovalRequest", back_populates="comments")
+    user = relationship("User", foreign_keys=[user_id], back_populates="approval_comments")
+
+    def __repr__(self):
+        return f"<ApprovalComment(id={self.id}, approval_request_id={self.approval_request_id})>"

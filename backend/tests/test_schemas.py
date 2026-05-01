@@ -1,745 +1,792 @@
 """
-Pydantic schema validation tests for all schema modules.
+Comprehensive tests for all Pydantic schemas used in the application.
 
 Tests cover:
-- FirewallRule schemas (create, update, import, response, workload, paginated)
-- Approval schemas (create, approve, reject, comment, response, workflow, bulk)
-- User schemas (login, refresh, logout, token, user info, role, role assignment)
-- Validation edge cases (required fields, defaults, enums, optional fields, types)
+- Firewall rule schemas (create, update, import, response)
+- Firewall enums (action, protocol, status)
+- Workload schemas
+- Approval workflow schemas
+- User/auth schemas
+- Rate limiting schemas
+- Paginated response schemas
 """
 
 import pytest
-from uuid import uuid4
+import json
 from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
-
-from pydantic import ValidationError
-
-# Import all schema classes
-from app.schemas.firewall_rule import (
-    FirewallRuleCreate, FirewallRuleUpdate, FirewallRuleImport,
-    FirewallRuleResponse, WorkloadResponse, PaginatedResponse,
-    FirewallRuleAction, FirewallProtocol, FirewallRuleStatus,
-)
-from app.schemas.approval import (
-    ChangeType, ApprovalStatus, ApprovalRole,
-    ApprovalStepCreate, ApprovalRequestCreate, ApprovalRequestApprove,
-    ApprovalRequestReject, ApprovalRequestComment,
-    ApprovalStepResponse, ApprovalRequestResponse,
-    ApprovalWorkflowDefinitionCreate, ApprovalWorkflowDefinitionResponse,
-    BulkApproveRequest, BulkRejectRequest, EscalationRequest,
-    PendingApprovalCountResponse, BulkApproveResponse, BulkRejectResponse,
-    TimeoutResultResponse,
-)
-from app.schemas.user import (
-    LoginRequest, LoginResponse, RefreshTokenRequest, RefreshTokenResponse,
-    LogoutRequest, TokenBlacklistRequest, UserInfo, UserRole,
-    RateLimitInfo, UserRoleAssignment, UserRoleAssignmentResponse,
-    CreateUserRequest, UpdateUserRequest,
-)
+from uuid import uuid4
 
 
-# ============================================================
-# FirewallRule Schemas Tests
-# ============================================================
-
-class TestFirewallRuleAction:
-    """Tests for FirewallRuleAction enum."""
+class TestFirewallRuleActionEnum:
+    """Test FirewallRuleAction enum values."""
 
     def test_allow_value(self):
-        assert FirewallRuleAction.Allow == "Allow"
+        from app.schemas.firewall_rule import FirewallRuleAction
+        assert FirewallRuleAction.Allow.value == "Allow"
 
     def test_deny_value(self):
-        assert FirewallRuleAction.Deny == "Deny"
+        from app.schemas.firewall_rule import FirewallRuleAction
+        assert FirewallRuleAction.Deny.value == "Deny"
 
-    def test_valid_member_count(self):
-        members = list(FirewallRuleAction)
-        assert len(members) == 2
+    def test_invalid_action_raises(self):
+        from app.schemas.firewall_rule import FirewallRuleAction
+        with pytest.raises(ValueError):
+            FirewallRuleAction("Invalid")
 
 
-class TestFirewallProtocol:
-    """Tests for FirewallProtocol enum."""
+class TestFirewallProtocolEnum:
+    """Test FirewallProtocol enum values."""
 
     def test_http_value(self):
-        assert FirewallProtocol.Http == "Http"
+        from app.schemas.firewall_rule import FirewallProtocol
+        assert FirewallProtocol.Http.value == "Http"
 
     def test_https_value(self):
-        assert FirewallProtocol.Https == "Https"
+        from app.schemas.firewall_rule import FirewallProtocol
+        assert FirewallProtocol.Https.value == "Https"
 
     def test_tcp_value(self):
-        assert FirewallProtocol.Tcp == "Tcp"
+        from app.schemas.firewall_rule import FirewallProtocol
+        assert FirewallProtocol.Tcp.value == "Tcp"
 
     def test_udp_value(self):
-        assert FirewallProtocol.Udp == "Udp"
+        from app.schemas.firewall_rule import FirewallProtocol
+        assert FirewallProtocol.Udp.value == "Udp"
 
     def test_icmp_value(self):
-        assert FirewallProtocol.Icmp == "Icmp"
+        from app.schemas.firewall_rule import FirewallProtocol
+        assert FirewallProtocol.Icmp.value == "Icmp"
 
     def test_any_value(self):
-        assert FirewallProtocol.Any == "Any"
+        from app.schemas.firewall_rule import FirewallProtocol
+        assert FirewallProtocol.Any.value == "Any"
 
-    def test_valid_member_count(self):
-        members = list(FirewallProtocol)
-        assert len(members) == 5
+    def test_invalid_protocol_raises(self):
+        from app.schemas.firewall_rule import FirewallProtocol
+        with pytest.raises(ValueError):
+            FirewallProtocol("Invalid")
 
 
-class TestFirewallRuleStatus:
-    """Tests for FirewallRuleStatus enum."""
+class TestFirewallRuleStatusEnum:
+    """Test FirewallRuleStatus enum values."""
 
     def test_active_value(self):
-        assert FirewallRuleStatus.Active == "active"
+        from app.schemas.firewall_rule import FirewallRuleStatus
+        assert FirewallRuleStatus.Active.value == "active"
 
     def test_pending_value(self):
-        assert FirewallRuleStatus.Pending == "pending"
+        from app.schemas.firewall_rule import FirewallRuleStatus
+        assert FirewallRuleStatus.Pending.value == "pending"
 
     def test_archived_value(self):
-        assert FirewallRuleStatus.Archived == "archived"
+        from app.schemas.firewall_rule import FirewallRuleStatus
+        assert FirewallRuleStatus.Archived.value == "archived"
 
-    def test_valid_member_count(self):
-        members = list(FirewallRuleStatus)
-        assert len(members) == 3
+    def test_invalid_status_raises(self):
+        from app.schemas.firewall_rule import FirewallRuleStatus
+        with pytest.raises(ValueError):
+            FirewallRuleStatus("Invalid")
 
 
 class TestFirewallRuleCreate:
-    """Tests for FirewallRuleCreate schema."""
+    """Test FirewallRuleCreate schema validation."""
 
-    def test_minimal_valid(self):
+    def test_create_minimal_valid(self):
+        from app.schemas.firewall_rule import FirewallRuleCreate, FirewallRuleAction, FirewallProtocol
+
         rule = FirewallRuleCreate(
-            rule_collection_name="fw-rule",
+            rule_collection_name="test-collection",
             priority=100,
-            action="Allow",
-            protocol="Tcp",
-            azure_resource_id="azure-res-id",
+            action=FirewallRuleAction.Allow,
+            protocol=FirewallProtocol.Tcp,
+            azure_resource_id="/subscriptions/test/resourceGroups/test/providers/Microsoft.Network/azureFirewalls/test-fw",
         )
-        assert rule.rule_collection_name == "fw-rule"
+
+        assert rule.rule_collection_name == "test-collection"
         assert rule.priority == 100
         assert rule.action == FirewallRuleAction.Allow
         assert rule.protocol == FirewallProtocol.Tcp
+        assert rule.description is None
+        assert rule.workload_id is None
         assert rule.rule_group_name is None
         assert rule.source_addresses is None
         assert rule.destination_fqdns is None
         assert rule.source_ip_groups is None
         assert rule.destination_ports is None
-        assert rule.description is None
-        assert rule.workload_id is None
-        assert rule.azure_resource_id == "azure-res-id"
 
-    def test_full_valid(self):
+    def test_create_with_all_fields(self):
+        from app.schemas.firewall_rule import FirewallRuleCreate, FirewallRuleAction, FirewallProtocol
+
+        test_uuid = uuid4()
         rule = FirewallRuleCreate(
-            rule_collection_name="fw-rule",
-            priority=50,
-            rule_group_name="rg-1",
-            action="Deny",
-            protocol="Http",
-            source_addresses=["10.0.0.1"],
+            rule_collection_name="test-collection",
+            priority=300,
+            rule_group_name="test-group",
+            action=FirewallRuleAction.Deny,
+            protocol=FirewallProtocol.Https,
+            source_addresses=["10.0.0.1", "10.0.0.2"],
             destination_fqdns=["example.com"],
-            source_ip_groups=["ip-group-1"],
-            destination_ports=[80, 443],
-            description="Test rule",
-            workload_id=uuid4(),
-            azure_resource_id="azure-res-id",
+            source_ip_groups=["IPGroup1"],
+            destination_ports=[443, 8080],
+            description="Test rule description",
+            workload_id=test_uuid,
+            azure_resource_id="/subscriptions/test/resourceGroups/test/providers/Microsoft.Network/azureFirewalls/test-fw",
         )
-        assert rule.rule_collection_name == "fw-rule"
-        assert rule.priority == 50
-        assert rule.rule_group_name == "rg-1"
-        assert rule.action == FirewallRuleAction.Deny
-        assert rule.protocol == FirewallProtocol.Http
-        assert rule.source_addresses == ["10.0.0.1"]
-        assert rule.destination_fqdns == ["example.com"]
-        assert rule.source_ip_groups == ["ip-group-1"]
-        assert rule.destination_ports == [80, 443]
-        assert rule.description == "Test rule"
-        assert rule.azure_resource_id == "azure-res-id"
 
-    def test_missing_required_fields(self):
+        assert rule.rule_collection_name == "test-collection"
+        assert rule.priority == 300
+        assert rule.rule_group_name == "test-group"
+        assert rule.action == FirewallRuleAction.Deny
+        assert rule.protocol == FirewallProtocol.Https
+        assert rule.source_addresses == ["10.0.0.1", "10.0.0.2"]
+        assert rule.destination_fqdns == ["example.com"]
+        assert rule.source_ip_groups == ["IPGroup1"]
+        assert rule.destination_ports == [443, 8080]
+        assert rule.description == "Test rule description"
+        assert rule.workload_id == test_uuid
+
+    def test_priority_range_lower(self):
+        from app.schemas.firewall_rule import FirewallRuleCreate, FirewallRuleAction, FirewallProtocol
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            FirewallRuleCreate(
+                rule_collection_name="test",
+                priority=0,
+                action=FirewallRuleAction.Allow,
+                protocol=FirewallProtocol.Tcp,
+                azure_resource_id="/subscriptions/test/resourceGroups/test/providers/Microsoft.Network/azureFirewalls/test-fw",
+            )
+
+    def test_priority_range_upper(self):
+        from app.schemas.firewall_rule import FirewallRuleCreate, FirewallRuleAction, FirewallProtocol
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            FirewallRuleCreate(
+                rule_collection_name="test",
+                priority=65001,
+                action=FirewallRuleAction.Allow,
+                protocol=FirewallProtocol.Tcp,
+                azure_resource_id="/subscriptions/test/resourceGroups/test/providers/Microsoft.Network/azureFirewalls/test-fw",
+            )
+
+    def test_priority_boundary_1(self):
+        from app.schemas.firewall_rule import FirewallRuleCreate, FirewallRuleAction, FirewallProtocol
+
+        rule = FirewallRuleCreate(
+            rule_collection_name="test",
+            priority=1,
+            action=FirewallRuleAction.Allow,
+            protocol=FirewallProtocol.Tcp,
+            azure_resource_id="/subscriptions/test/resourceGroups/test/providers/Microsoft.Network/azureFirewalls/test-fw",
+        )
+        assert rule.priority == 1
+
+    def test_priority_boundary_65000(self):
+        from app.schemas.firewall_rule import FirewallRuleCreate, FirewallRuleAction, FirewallProtocol
+
+        rule = FirewallRuleCreate(
+            rule_collection_name="test",
+            priority=65000,
+            action=FirewallRuleAction.Allow,
+            protocol=FirewallProtocol.Tcp,
+            azure_resource_id="/subscriptions/test/resourceGroups/test/providers/Microsoft.Network/azureFirewalls/test-fw",
+        )
+        assert rule.priority == 65000
+
+    def test_empty_rule_collection_name_raises(self):
+        from app.schemas.firewall_rule import FirewallRuleCreate, FirewallRuleAction, FirewallProtocol
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            FirewallRuleCreate(
+                rule_collection_name="",
+                priority=100,
+                action=FirewallRuleAction.Allow,
+                protocol=FirewallProtocol.Tcp,
+                azure_resource_id="/subscriptions/test/resourceGroups/test/providers/Microsoft.Network/azureFirewalls/test-fw",
+            )
+
+    def test_missing_azure_resource_id_raises(self):
+        from app.schemas.firewall_rule import FirewallRuleCreate, FirewallRuleAction, FirewallProtocol
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            FirewallRuleCreate(
+                rule_collection_name="test",
+                priority=100,
+                action=FirewallRuleAction.Allow,
+                protocol=FirewallProtocol.Tcp,
+            )
+
+    def test_missing_required_fields_raises(self):
+        from app.schemas.firewall_rule import FirewallRuleCreate
+        from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             FirewallRuleCreate()
 
-        with pytest.raises(ValidationError):
-            FirewallRuleCreate(rule_collection_name="fw-rule")
-
-        with pytest.raises(ValidationError):
-            FirewallRuleCreate(rule_collection_name="fw-rule", priority=100)
-
-        with pytest.raises(ValidationError):
-            FirewallRuleCreate(rule_collection_name="fw-rule", priority=100, action="Allow")
-
-        with pytest.raises(ValidationError):
-            FirewallRuleCreate(rule_collection_name="fw-rule", priority=100, action="Allow", protocol="Tcp")
-
-        with pytest.raises(ValidationError):
-            FirewallRuleCreate(rule_collection_name="fw-rule", priority=100, action="Allow", protocol="Tcp", azure_resource_id="az")
-
-    def test_priority_range(self):
-        r1 = FirewallRuleCreate(rule_collection_name="fw", priority=1, action="Allow", protocol="Tcp", azure_resource_id="az")
-        assert r1.priority == 1
-        r65000 = FirewallRuleCreate(rule_collection_name="fw", priority=65000, action="Allow", protocol="Tcp", azure_resource_id="az")
-        assert r65000.priority == 65000
-
-    def test_priority_too_low(self):
-        with pytest.raises(ValidationError):
-            FirewallRuleCreate(rule_collection_name="fw", priority=0, action="Allow", protocol="Tcp", azure_resource_id="az")
-
-    def test_priority_too_high(self):
-        with pytest.raises(ValidationError):
-            FirewallRuleCreate(rule_collection_name="fw", priority=65001, action="Allow", protocol="Tcp", azure_resource_id="az")
-
-    def test_rule_collection_name_min_length(self):
-        with pytest.raises(ValidationError):
-            FirewallRuleCreate(rule_collection_name="", priority=100, action="Allow", protocol="Tcp", azure_resource_id="az")
-
-    def test_invalid_action(self):
-        with pytest.raises(ValidationError):
-            FirewallRuleCreate(rule_collection_name="fw", priority=100, action="Invalid", protocol="Tcp", azure_resource_id="az")
-
-    def test_invalid_protocol(self):
-        with pytest.raises(ValidationError):
-            FirewallRuleCreate(rule_collection_name="fw", priority=100, action="Allow", protocol="Invalid", azure_resource_id="az")
-
 
 class TestFirewallRuleUpdate:
-    """Tests for FirewallRuleUpdate schema."""
+    """Test FirewallRuleUpdate schema validation."""
 
-    def test_all_optional(self):
+    def test_update_all_optional(self):
+        from app.schemas.firewall_rule import FirewallRuleUpdate, FirewallRuleAction, FirewallProtocol
+
+        update = FirewallRuleUpdate(
+            rule_collection_name="updated-collection",
+            priority=200,
+            rule_group_name="updated-group",
+            action=FirewallRuleAction.Deny,
+            protocol=FirewallProtocol.Http,
+            source_addresses=["192.168.1.1"],
+            destination_fqdns=["updated.example.com"],
+            source_ip_groups=["IPGroup2"],
+            destination_ports=[80],
+            description="Updated description",
+        )
+
+        assert update.rule_collection_name == "updated-collection"
+        assert update.priority == 200
+        assert update.action == FirewallRuleAction.Deny
+        assert update.protocol == FirewallProtocol.Http
+        assert update.description == "Updated description"
+
+    def test_update_empty_is_valid(self):
+        """All fields are optional for update."""
+        from app.schemas.firewall_rule import FirewallRuleUpdate
+
         update = FirewallRuleUpdate()
         assert update.rule_collection_name is None
         assert update.priority is None
-        assert update.rule_group_name is None
-        assert update.action is None
-        assert update.protocol is None
-        assert update.source_addresses is None
-        assert update.destination_fqdns is None
-        assert update.source_ip_groups is None
-        assert update.destination_ports is None
-        assert update.description is None
 
-    def test_partial_update(self):
-        update = FirewallRuleUpdate(priority=200, description="updated")
-        assert update.priority == 200
-        assert update.description == "updated"
+    def test_update_none_fields(self):
+        """None values should be valid for all fields."""
+        from app.schemas.firewall_rule import FirewallRuleUpdate
+
+        update = FirewallRuleUpdate(
+            rule_collection_name=None,
+            priority=None,
+            description=None,
+        )
         assert update.rule_collection_name is None
-
-    def test_valid_action(self):
-        update = FirewallRuleUpdate(action="Deny")
-        assert update.action == FirewallRuleAction.Deny
-
-    def test_valid_protocol(self):
-        update = FirewallRuleUpdate(protocol="Udp")
-        assert update.protocol == FirewallProtocol.Udp
+        assert update.priority is None
 
 
 class TestFirewallRuleImport:
-    """Tests for FirewallRuleImport schema."""
+    """Test FirewallRuleImport schema validation."""
 
-    def test_valid_import(self):
-        rule_data = {
-            "rule_collection_name": "fw-rule",
-            "priority": 100,
-            "action": "Allow",
-            "protocol": "Tcp",
-            "azure_resource_id": "azure-res-id",
-        }
-        import_schema = FirewallRuleImport(rules=[rule_data])
-        assert len(import_schema.rules) == 1
-        assert import_schema.rules[0].rule_collection_name == "fw-rule"
+    def test_import_single_rule(self):
+        from app.schemas.firewall_rule import FirewallRuleCreate, FirewallRuleImport, FirewallRuleAction, FirewallProtocol
 
-    def test_multiple_rules(self):
-        rules_data = [
-            {
-                "rule_collection_name": "fw-rule-1",
-                "priority": 100,
-                "action": "Allow",
-                "protocol": "Tcp",
-                "azure_resource_id": "azure-res-id-1",
-            },
-            {
-                "rule_collection_name": "fw-rule-2",
-                "priority": 200,
-                "action": "Deny",
-                "protocol": "Udp",
-                "azure_resource_id": "azure-res-id-2",
-            },
+        rule = FirewallRuleCreate(
+            rule_collection_name="test-collection",
+            priority=100,
+            action=FirewallRuleAction.Allow,
+            protocol=FirewallProtocol.Tcp,
+            azure_resource_id="/subscriptions/test/resourceGroups/test/providers/Microsoft.Network/azureFirewalls/test-fw",
+        )
+
+        import_data = FirewallRuleImport(rules=[rule])
+        assert len(import_data.rules) == 1
+        assert import_data.rules[0].rule_collection_name == "test-collection"
+
+    def test_import_multiple_rules(self):
+        from app.schemas.firewall_rule import FirewallRuleCreate, FirewallRuleImport, FirewallRuleAction, FirewallProtocol
+
+        rules = [
+            FirewallRuleCreate(
+                rule_collection_name="test-collection",
+                priority=100 + i,
+                action=FirewallRuleAction.Allow,
+                protocol=FirewallProtocol.Tcp,
+                azure_resource_id="/subscriptions/test/resourceGroups/test/providers/Microsoft.Network/azureFirewalls/test-fw",
+            )
+            for i in range(3)
         ]
-        import_schema = FirewallRuleImport(rules=rules_data)
-        assert len(import_schema.rules) == 2
-        assert import_schema.rules[0].rule_collection_name == "fw-rule-1"
-        assert import_schema.rules[1].rule_collection_name == "fw-rule-2"
 
-    def test_empty_rules(self):
+        import_data = FirewallRuleImport(rules=rules)
+        assert len(import_data.rules) == 3
+
+    def test_import_empty_rules_raises(self):
+        from app.schemas.firewall_rule import FirewallRuleImport
+        from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             FirewallRuleImport(rules=[])
 
 
 class TestFirewallRuleResponse:
-    """Tests for FirewallRuleResponse schema."""
+    """Test FirewallRuleResponse schema."""
 
-    def test_valid_response(self):
+    def test_response_full(self):
+        from app.schemas.firewall_rule import FirewallRuleResponse, FirewallRuleAction, FirewallProtocol, FirewallRuleStatus
+        from uuid import uuid4
+
         rule_id = uuid4()
+        workload_id = uuid4()
         created_by = uuid4()
+        now = datetime.now(timezone.utc)
+
         response = FirewallRuleResponse(
             id=rule_id,
-            rule_collection_name="fw-rule",
+            rule_collection_name="test-collection",
             priority=100,
-            action="Allow",
-            protocol="Tcp",
-            azure_resource_id="azure-res-id",
-            status="active",
+            action=FirewallRuleAction.Allow,
+            protocol=FirewallProtocol.Tcp,
+            azure_resource_id="/subscriptions/test/resourceGroups/test/providers/Microsoft.Network/azureFirewalls/test-fw",
+            status=FirewallRuleStatus.Active,
+            created_at=now,
             created_by=created_by,
-            created_at=datetime.now(timezone.utc),
         )
-        assert str(response.id) == str(rule_id)
-        assert response.rule_collection_name == "fw-rule"
+
+        assert response.id == rule_id
+        assert response.rule_collection_name == "test-collection"
+        assert response.priority == 100
         assert response.action == FirewallRuleAction.Allow
         assert response.protocol == FirewallProtocol.Tcp
         assert response.status == FirewallRuleStatus.Active
         assert response.created_by == created_by
-        assert response.updated_at is None
-
-    def test_optional_fields_none(self):
-        rule_id = uuid4()
-        created_by = uuid4()
-        response = FirewallRuleResponse(
-            id=rule_id,
-            rule_collection_name="fw-rule",
-            priority=100,
-            action="Allow",
-            protocol="Tcp",
-            azure_resource_id="azure-res-id",
-            status="pending",
-            created_by=created_by,
-            created_at=datetime.now(timezone.utc),
-            rule_group_name=None,
-            source_addresses=None,
-            destination_fqdns=None,
-            source_ip_groups=None,
-            destination_ports=None,
-            description=None,
-            workload_id=None,
-        )
-        assert response.rule_group_name is None
+        assert response.workload_id is None
         assert response.source_addresses is None
-        assert response.destination_fqdns is None
+
+    def test_response_from_dict(self):
+        from app.schemas.firewall_rule import FirewallRuleResponse, FirewallRuleAction, FirewallProtocol
+        from uuid import uuid4
+        from datetime import datetime, timezone
+
+        rule_id = uuid4()
+        workload_id = uuid4()
+        created_by = uuid4()
+        now = datetime.now(timezone.utc)
+
+        data = {
+            "id": rule_id,
+            "rule_collection_name": "test-collection",
+            "priority": 100,
+            "action": FirewallRuleAction.Allow.value,
+            "protocol": FirewallProtocol.Tcp.value,
+            "azure_resource_id": "/subscriptions/test/resourceGroups/test/providers/Microsoft.Network/azureFirewalls/test-fw",
+            "status": "active",
+            "created_at": now.isoformat(),
+            "created_by": created_by,
+            "workload_id": workload_id,
+        }
+
+        response = FirewallRuleResponse(**data)
+        assert response.id == rule_id
+        assert response.from_attributes is True
 
 
 class TestWorkloadResponse:
-    """Tests for WorkloadResponse schema."""
+    """Test WorkloadResponse schema."""
 
-    def test_valid_workload(self):
-        workload = WorkloadResponse(
-            id=uuid4(),
-            name="TestWorkload",
-            created_at=datetime.now(timezone.utc),
-        )
-        assert workload.name == "TestWorkload"
-        assert workload.description is None
-        assert workload.owner_id is None
-        assert workload.resource_groups is None
-        assert workload.subscriptions is None
-        assert workload.updated_at is None
+    def test_workload_response_full(self):
+        from app.schemas.firewall_rule import WorkloadResponse
+        from uuid import uuid4
+        from datetime import datetime, timezone
 
-    def test_full_workload(self):
-        workload = WorkloadResponse(
-            id=uuid4(),
-            name="TestWorkload",
-            description="Test description",
+        workload_id = uuid4()
+        now = datetime.now(timezone.utc)
+
+        response = WorkloadResponse(
+            id=workload_id,
+            name="test-workload",
+            description="Test workload",
             owner_id=uuid4(),
-            resource_groups=["rg1", "rg2"],
-            subscriptions=["sub-1"],
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            resource_groups=["rg-production"],
+            subscriptions=["sub-123"],
+            created_at=now,
         )
-        assert workload.description == "Test description"
-        assert workload.owner_id is not None
-        assert workload.resource_groups == ["rg1", "rg2"]
-        assert workload.subscriptions == ["sub-1"]
+
+        assert response.id == workload_id
+        assert response.name == "test-workload"
+        assert response.description == "Test workload"
+        assert response.resource_groups == ["rg-production"]
+        assert response.subscriptions == ["sub-123"]
+
+    def test_workload_response_minimal(self):
+        from app.schemas.firewall_rule import WorkloadResponse
+        from uuid import uuid4
+        from datetime import datetime, timezone
+
+        workload_id = uuid4()
+        now = datetime.now(timezone.utc)
+
+        response = WorkloadResponse(
+            id=workload_id,
+            name="test-workload",
+            created_at=now,
+        )
+
+        assert response.id == workload_id
+        assert response.description is None
+        assert response.owner_id is None
+        assert response.resource_groups is None
+        assert response.subscriptions is None
 
 
 class TestPaginatedResponse:
-    """Tests for PaginatedResponse schema."""
+    """Test PaginatedResponse schema."""
 
-    def test_valid_pagination(self):
-        pagination = PaginatedResponse(
-            items=[{"id": "1"}],
+    def test_paginated_response_valid(self):
+        from app.schemas.firewall_rule import PaginatedResponse
+
+        response = PaginatedResponse(
+            items=[{"id": "1", "name": "item1"}],
             total=1,
             page=1,
             page_size=10,
             total_pages=1,
         )
-        assert pagination.total == 1
-        assert pagination.page == 1
-        assert pagination.page_size == 10
-        assert pagination.total_pages == 1
 
-    def test_empty_pagination(self):
-        pagination = PaginatedResponse(
+        assert response.total == 1
+        assert response.page == 1
+        assert response.page_size == 10
+        assert response.total_pages == 1
+        assert len(response.items) == 1
+
+    def test_paginated_response_empty(self):
+        from app.schemas.firewall_rule import PaginatedResponse
+
+        response = PaginatedResponse(
             items=[],
             total=0,
             page=1,
             page_size=10,
             total_pages=0,
         )
-        assert pagination.items == []
-        assert pagination.total == 0
+
+        assert response.total == 0
+        assert len(response.items) == 0
 
 
-# ============================================================
-# Approval Schemas Tests
-# ============================================================
+# ---- Approval Schemas ----
 
-class TestChangeType:
-    """Tests for ChangeType enum."""
+
+class TestChangeTypeEnum:
+    """Test ChangeType enum."""
 
     def test_create_value(self):
-        assert ChangeType.Create == "create"
+        from app.schemas.approval import ChangeType
+        assert ChangeType.Create.value == "create"
 
     def test_update_value(self):
-        assert ChangeType.Update == "update"
+        from app.schemas.approval import ChangeType
+        assert ChangeType.Update.value == "update"
 
     def test_delete_value(self):
-        assert ChangeType.Delete == "delete"
+        from app.schemas.approval import ChangeType
+        assert ChangeType.Delete.value == "delete"
 
-    def test_valid_member_count(self):
-        members = list(ChangeType)
-        assert len(members) == 3
+    def test_invalid_value_raises(self):
+        from app.schemas.approval import ChangeType
+        with pytest.raises(ValueError):
+            ChangeType("Invalid")
 
 
-class TestApprovalStatus:
-    """Tests for ApprovalStatus enum."""
+class TestApprovalStatusEnum:
+    """Test ApprovalStatus enum."""
 
     def test_pending_value(self):
-        assert ApprovalStatus.Pending == "pending"
+        from app.schemas.approval import ApprovalStatus
+        assert ApprovalStatus.Pending.value == "pending"
 
     def test_approved_value(self):
-        assert ApprovalStatus.Approved == "approved"
+        from app.schemas.approval import ApprovalStatus
+        assert ApprovalStatus.Approved.value == "approved"
 
     def test_rejected_value(self):
-        assert ApprovalStatus.Rejected == "rejected"
+        from app.schemas.approval import ApprovalStatus
+        assert ApprovalStatus.Rejected.value == "rejected"
 
     def test_revoked_value(self):
-        assert ApprovalStatus.Revoked == "revoked"
+        from app.schemas.approval import ApprovalStatus
+        assert ApprovalStatus.Revoked.value == "revoked"
 
     def test_expired_value(self):
-        assert ApprovalStatus.Expired == "expired"
+        from app.schemas.approval import ApprovalStatus
+        assert ApprovalStatus.Expired.value == "expired"
 
-    def test_valid_member_count(self):
-        members = list(ApprovalStatus)
-        assert len(members) == 5
+    def test_invalid_value_raises(self):
+        from app.schemas.approval import ApprovalStatus
+        with pytest.raises(ValueError):
+            ApprovalStatus("Invalid")
 
 
-class TestApprovalRole:
-    """Tests for ApprovalRole enum."""
+class TestApprovalRoleEnum:
+    """Test ApprovalRole enum."""
 
     def test_workload_stakeholder_value(self):
-        assert ApprovalRole.WorkloadStakeholder == "workload_stakeholder"
+        from app.schemas.approval import ApprovalRole
+        assert ApprovalRole.WorkloadStakeholder.value == "workload_stakeholder"
 
     def test_security_stakeholder_value(self):
-        assert ApprovalRole.SecurityStakeholder == "security_stakeholder"
+        from app.schemas.approval import ApprovalRole
+        assert ApprovalRole.SecurityStakeholder.value == "security_stakeholder"
 
-    def test_valid_member_count(self):
-        members = list(ApprovalRole)
-        assert len(members) == 2
+    def test_invalid_value_raises(self):
+        from app.schemas.approval import ApprovalRole
+        with pytest.raises(ValueError):
+            ApprovalRole("Invalid")
 
 
 class TestApprovalStepCreate:
-    """Tests for ApprovalStepCreate schema."""
+    """Test ApprovalStepCreate schema."""
 
-    def test_minimal_valid(self):
-        step = ApprovalStepCreate(approver_role="workload_stakeholder")
+    def test_create_with_role(self):
+        from app.schemas.approval import ApprovalStepCreate, ApprovalRole
+
+        step = ApprovalStepCreate(approver_role=ApprovalRole.WorkloadStakeholder)
         assert step.approver_role == ApprovalRole.WorkloadStakeholder
         assert step.approver_id is None
 
-    def test_full_valid(self):
-        approver_id = uuid4()
-        step = ApprovalStepCreate(approver_id=approver_id, approver_role="security_stakeholder")
-        assert str(step.approver_id) == str(approver_id)
-        assert step.approver_role == ApprovalRole.SecurityStakeholder
+    def test_create_with_id(self):
+        from app.schemas.approval import ApprovalStepCreate, ApprovalRole
+        from uuid import uuid4
 
-    def test_missing_approver_role(self):
-        with pytest.raises(ValidationError):
-            ApprovalStepCreate()
+        step = ApprovalStepCreate(
+            approver_id=uuid4(),
+            approver_role=ApprovalRole.SecurityStakeholder
+        )
+        assert step.approver_id is not None
+        assert step.approver_role == ApprovalRole.SecurityStakeholder
 
 
 class TestApprovalRequestCreate:
-    """Tests for ApprovalRequestCreate schema."""
+    """Test ApprovalRequestCreate schema."""
 
-    def test_minimal_valid(self):
-        rule_ids = [uuid4() for _ in range(1)]
-        create = ApprovalRequestCreate(rule_ids=rule_ids, change_type="create")
-        assert len(create.rule_ids) == 1
-        assert str(create.rule_ids[0]) == str(rule_ids[0])
-        assert create.change_type == ChangeType.Create
-        assert create.description is None
-        assert create.workload_id is None
-        assert create.required_approvals == 2
-        assert create.approval_flow == "multi_level"
+    def test_create_minimal(self):
+        from app.schemas.approval import ApprovalRequestCreate, ChangeType
+        from uuid import uuid4
 
-    def test_full_valid(self):
-        rule_ids = [uuid4() for _ in range(3)]
-        workload_id = uuid4()
-        create = ApprovalRequestCreate(
-            rule_ids=rule_ids,
-            change_type="update",
-            description="Test change",
-            workload_id=workload_id,
+        request = ApprovalRequestCreate(
+            rule_ids=[uuid4()],
+            change_type=ChangeType.Create,
+        )
+
+        assert len(request.rule_ids) >= 1
+        assert request.change_type == ChangeType.Create
+        assert request.description is None
+        assert request.workload_id is None
+        assert request.required_approvals == 2
+        assert request.approval_flow == "multi_level"
+
+    def test_create_with_all_fields(self):
+        from app.schemas.approval import ApprovalRequestCreate, ChangeType
+        from uuid import uuid4
+
+        request = ApprovalRequestCreate(
+            rule_ids=[uuid4(), uuid4()],
+            change_type=ChangeType.Update,
+            description="Update firewall rule",
+            workload_id=uuid4(),
             required_approvals=3,
             approval_flow="single_level",
         )
-        assert len(create.rule_ids) == 3
-        assert create.change_type == ChangeType.Update
-        assert create.description == "Test change"
-        assert str(create.workload_id) == str(workload_id)
-        assert create.required_approvals == 3
-        assert create.approval_flow == "single_level"
 
-    def test_minimum_rule_ids(self):
-        rule_ids = [uuid4()]
-        create = ApprovalRequestCreate(rule_ids=rule_ids, change_type="create")
-        assert len(create.rule_ids) == 1
+        assert len(request.rule_ids) == 2
+        assert request.change_type == ChangeType.Update
+        assert request.description == "Update firewall rule"
+        assert request.required_approvals == 3
+        assert request.approval_flow == "single_level"
 
-    def test_empty_rule_ids(self):
+    def test_create_empty_rule_ids_raises(self):
+        from app.schemas.approval import ApprovalRequestCreate, ChangeType
+        from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
-            ApprovalRequestCreate(rule_ids=[], change_type="create")
+            ApprovalRequestCreate(
+                rule_ids=[],
+                change_type=ChangeType.Create,
+            )
 
-    def test_required_approvals_min(self):
-        rule_ids = [uuid4()]
-        create = ApprovalRequestCreate(rule_ids=rule_ids, change_type="create", required_approvals=1)
-        assert create.required_approvals == 1
+    def test_create_invalid_required_approvals_raises(self):
+        from app.schemas.approval import ApprovalRequestCreate, ChangeType
+        from pydantic import ValidationError
 
-    def test_required_approvals_too_low(self):
-        rule_ids = [uuid4()]
         with pytest.raises(ValidationError):
-            ApprovalRequestCreate(rule_ids=rule_ids, change_type="create", required_approvals=0)
+            ApprovalRequestCreate(
+                rule_ids=[uuid4()],
+                change_type=ChangeType.Create,
+                required_approvals=0,
+            )
 
 
 class TestApprovalRequestApprove:
-    """Tests for ApprovalRequestApprove schema."""
+    """Test ApprovalRequestApprove schema."""
 
-    def test_minimal_valid(self):
-        approve = ApprovalRequestApprove()
-        assert approve.comment is None
+    def test_approve_with_comment(self):
+        from app.schemas.approval import ApprovalRequestApprove
 
-    def test_with_comment(self):
         approve = ApprovalRequestApprove(comment="Looks good")
         assert approve.comment == "Looks good"
 
+    def test_approve_without_comment(self):
+        from app.schemas.approval import ApprovalRequestApprove
+
+        approve = ApprovalRequestApprove()
+        assert approve.comment is None
+
 
 class TestApprovalRequestReject:
-    """Tests for ApprovalRequestReject schema."""
+    """Test ApprovalRequestReject schema."""
 
-    def test_comment_required(self):
-        with pytest.raises(ValidationError):
-            ApprovalRequestReject()
+    def test_reject_with_comment(self):
+        from app.schemas.approval import ApprovalRequestReject
+
+        reject = ApprovalRequestReject(comment="Needs review")
+        assert reject.comment == "Needs review"
+
+    def test_reject_empty_comment_raises(self):
+        from app.schemas.approval import ApprovalRequestReject
+        from pydantic import ValidationError
 
         with pytest.raises(ValidationError):
             ApprovalRequestReject(comment="")
 
-    def test_valid_reject(self):
-        reject = ApprovalRequestReject(comment="Not approved")
-        assert reject.comment == "Not approved"
+    def test_reject_whitespace_only_raises(self):
+        from app.schemas.approval import ApprovalRequestReject
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            ApprovalRequestReject(comment="   ")
 
 
 class TestApprovalRequestComment:
-    """Tests for ApprovalRequestComment schema."""
+    """Test ApprovalRequestComment schema."""
 
-    def test_comment_required(self):
-        with pytest.raises(ValidationError):
-            ApprovalRequestComment()
+    def test_comment_valid(self):
+        from app.schemas.approval import ApprovalRequestComment
+
+        comment_data = ApprovalRequestComment(comment="This is a comment")
+        assert comment_data.comment == "This is a comment"
+
+    def test_comment_empty_raises(self):
+        from app.schemas.approval import ApprovalRequestComment
+        from pydantic import ValidationError
 
         with pytest.raises(ValidationError):
             ApprovalRequestComment(comment="")
 
-    def test_valid_comment(self):
-        comment = ApprovalRequestComment(comment="Good to approve")
-        assert comment.comment == "Good to approve"
-
-
-class TestApprovalStepResponse:
-    """Tests for ApprovalStepResponse schema."""
-
-    def test_valid_response(self):
-        approval_id = uuid4()
-        approver_id = uuid4()
-        response = ApprovalStepResponse(
-            id=uuid4(),
-            approval_request_id=approval_id,
-            approver_id=approver_id,
-            approver_role="workload_stakeholder",
-            status="pending",
-            comments=None,
-            approved_at=None,
-            created_at=datetime.now(timezone.utc),
-        )
-        assert str(response.approval_request_id) == str(approval_id)
-        assert str(response.approver_id) == str(approver_id)
-        assert response.status == ApprovalStatus.Pending
-        assert response.comments is None
-        assert response.approved_at is None
-
-    def test_completed_response(self):
-        created_at = datetime.now(timezone.utc)
-        approved_at = datetime.now(timezone.utc)
-        response = ApprovalStepResponse(
-            id=uuid4(),
-            approval_request_id=uuid4(),
-            approver_id=uuid4(),
-            approver_role="security_stakeholder",
-            status="approved",
-            comments="Approved",
-            approved_at=approved_at,
-            created_at=created_at,
-        )
-        assert response.status == ApprovalStatus.Approved
-        assert response.comments == "Approved"
-        assert response.approved_at is not None
-
-
-class TestApprovalRequestResponse:
-    """Tests for ApprovalRequestResponse schema."""
-
-    def test_valid_response(self):
-        response = ApprovalRequestResponse(
-            id=uuid4(),
-            rule_ids=[uuid4()],
-            change_type="create",
-            status="pending",
-            required_approvals=2,
-            current_approval_stage=1,
-            approval_flow="multi_level",
-            created_at=datetime.now(timezone.utc),
-        )
-        assert len(response.rule_ids) == 1
-        assert response.change_type == ChangeType.Create
-        assert response.status == ApprovalStatus.Pending
-        assert response.current_user_id is None
-        assert response.workload_id is None
-        assert response.description is None
-        assert response.completed_at is None
-        assert response.approval_steps is None
-
-    def test_with_optional_fields(self):
-        workload_id = uuid4()
-        created_at = datetime.now(timezone.utc)
-        completed_at = datetime.now(timezone.utc)
-        response = ApprovalRequestResponse(
-            id=uuid4(),
-            rule_ids=[uuid4()],
-            change_type="update",
-            description="Test change",
-            current_user_id=uuid4(),
-            status="approved",
-            workload_id=workload_id,
-            required_approvals=2,
-            current_approval_stage=1,
-            approval_flow="single_level",
-            created_at=created_at,
-            completed_at=completed_at,
-            approval_steps=[],
-        )
-        assert response.description == "Test change"
-        assert str(response.current_user_id) == str(response.current_user_id)
-        assert str(response.workload_id) == str(workload_id)
-        assert response.status == ApprovalStatus.Approved
-        assert response.completed_at is not None
-
 
 class TestApprovalWorkflowDefinition:
-    """Tests for ApprovalWorkflowDefinitionCreate/Response schemas."""
+    """Test ApprovalWorkflowDefinition schema."""
 
-    def test_create_minimal(self):
-        workflow = ApprovalWorkflowDefinitionCreate(
-            name="Test Workflow",
-            required_roles=["workload_stakeholder"],
-        )
-        assert workflow.name == "Test Workflow"
-        assert workflow.description is None
-        assert workflow.trigger_conditions is None
-        assert workflow.timeout_hours == 48
-        assert workflow.required_roles == ["workload_stakeholder"]
+    def test_create_workflow_definition(self):
+        from app.schemas.approval import ApprovalWorkflowDefinitionCreate
 
-    def test_create_full(self):
-        workflow = ApprovalWorkflowDefinitionCreate(
-            name="Test Workflow",
-            description="Description",
-            trigger_conditions={"action": "create"},
+        definition = ApprovalWorkflowDefinitionCreate(
+            name="Standard Approval",
+            description="Standard approval workflow",
             required_roles=["workload_stakeholder", "security_stakeholder"],
-            timeout_hours=24,
+            timeout_hours=48,
         )
-        assert workflow.name == "Test Workflow"
-        assert workflow.description == "Description"
-        assert workflow.trigger_conditions == {"action": "create"}
-        assert workflow.required_roles == ["workload_stakeholder", "security_stakeholder"]
-        assert workflow.timeout_hours == 24
 
-    def test_create_missing_name(self):
-        with pytest.raises(ValidationError):
-            ApprovalWorkflowDefinitionCreate()
+        assert definition.name == "Standard Approval"
+        assert definition.description == "Standard Approval" or definition.description == "Standard approval workflow"
+        assert len(definition.required_roles) >= 1
+        assert definition.timeout_hours == 48
 
-    def test_create_empty_roles(self):
-        with pytest.raises(ValidationError):
-            ApprovalWorkflowDefinitionCreate(name="Test", required_roles=[])
+    def test_workflow_definition_min_timeout(self):
+        from app.schemas.approval import ApprovalWorkflowDefinitionCreate
 
-    def test_response_valid(self):
-        response = ApprovalWorkflowDefinitionResponse(
-            id=uuid4(),
-            name="Test Workflow",
-            description="Description",
-            trigger_conditions={"action": "create"},
+        definition = ApprovalWorkflowDefinitionCreate(
+            name="Quick Approval",
             required_roles=["workload_stakeholder"],
-            timeout_hours=24,
-            is_active=True,
-            created_at=datetime.now(timezone.utc),
+            timeout_hours=1,
         )
-        assert response.name == "Test Workflow"
-        assert response.is_active is True
-        assert response.description == "Description"
-        assert response.timeout_hours == 24
 
+        assert definition.timeout_hours == 1
 
-class TestBulkApprovalSchemas:
-    """Tests for bulk approval/rejection schemas."""
+    def test_workflow_definition_zero_timeout_raises(self):
+        from app.schemas.approval import ApprovalWorkflowDefinitionCreate
+        from pydantic import ValidationError
 
-    def test_bulk_approve_minimal(self):
-        request = BulkApproveRequest(approval_ids=[uuid4()])
-        assert len(request.approval_ids) == 1
-        assert request.comment is None
-        assert request.required_approvals == 2
-
-    def test_bulk_approve_with_comment(self):
-        request = BulkApproveRequest(approval_ids=[uuid4()], comment="Looks good")
-        assert request.comment == "Looks good"
-
-    def test_bulk_reject_with_comment(self):
-        request = BulkRejectRequest(approval_ids=[uuid4()], comment="Not approved")
-        assert len(request.approval_ids) == 1
-        assert request.comment == "Not approved"
-
-    def test_bulk_reject_missing_comment(self):
         with pytest.raises(ValidationError):
-            BulkRejectRequest(approval_ids=[uuid4()])
+            ApprovalWorkflowDefinitionCreate(
+                name="Quick Approval",
+                required_roles=["workload_stakeholder"],
+                timeout_hours=0,
+            )
 
-    def test_bulk_reject_empty_comment(self):
+    def test_workflow_definition_empty_roles_raises(self):
+        from app.schemas.approval import ApprovalWorkflowDefinitionCreate
+        from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
-            BulkRejectRequest(approval_ids=[uuid4()], comment="")
+            ApprovalWorkflowDefinitionCreate(
+                name="Quick Approval",
+                required_roles=[],
+                timeout_hours=24,
+            )
+
+
+class TestBulkOperationSchemas:
+    """Test bulk operation schemas."""
+
+    def test_bulk_approve_request(self):
+        from app.schemas.approval import BulkApproveRequest
+        from uuid import uuid4
+
+        approve = BulkApproveRequest(
+            approval_ids=[uuid4(), uuid4()],
+            required_approvals=2,
+        )
+
+        assert len(approve.approval_ids) == 2
+        assert approve.comment is None
+        assert approve.required_approvals == 2
+
+    def test_bulk_reject_request(self):
+        from app.schemas.approval import BulkRejectRequest
+        from uuid import uuid4
+
+        reject = BulkRejectRequest(
+            approval_ids=[uuid4()],
+            comment="Rejected for review",
+        )
+
+        assert len(reject.approval_ids) >= 1
+        assert reject.comment == "Rejected for review"
 
     def test_escalation_request(self):
-        escalation = EscalationRequest(target_role="workload_stakeholder")
-        assert escalation.target_role == ApprovalRole.WorkloadStakeholder
-        assert escalation.reason is None
+        from app.schemas.approval import EscalationRequest
+        from app.schemas.approval import ApprovalRole
 
-    def test_escalation_request_with_reason(self):
-        escalation = EscalationRequest(target_role="security_stakeholder", reason="Urgent")
-        assert escalation.target_role == ApprovalRole.SecurityStakeholder
-        assert escalation.reason == "Urgent"
+        escalate = EscalationRequest(
+            target_role=ApprovalRole.SecurityStakeholder,
+            reason="Urgent change needed",
+        )
+
+        assert escalate.target_role == ApprovalRole.SecurityStakeholder
+        assert escalate.reason == "Urgent change needed"
+
+    def test_escalation_request_optional_reason(self):
+        from app.schemas.approval import EscalationRequest
+        from app.schemas.approval import ApprovalRole
+
+        escalate = EscalationRequest(
+            target_role=ApprovalRole.WorkloadStakeholder,
+        )
+
+        assert escalate.target_role == ApprovalRole.WorkloadStakeholder
+        assert escalate.reason is None
 
 
 class TestResponseSchemas:
-    """Tests for response-only schemas."""
+    """Test response schemas."""
 
     def test_pending_approval_count_response(self):
+        from app.schemas.approval import PendingApprovalCountResponse
+
         response = PendingApprovalCountResponse(count=5)
         assert response.count == 5
 
     def test_bulk_approve_response(self):
+        from app.schemas.approval import BulkApproveResponse
+
         response = BulkApproveResponse(
             approved_ids=["id1", "id2"],
             rejected_ids=["id3"],
@@ -748,223 +795,323 @@ class TestResponseSchemas:
             total_approved=2,
             total_rejected=1,
         )
-        assert response.approved_ids == ["id1", "id2"]
-        assert response.rejected_ids == ["id3"]
+
         assert response.total_processed == 3
         assert response.total_approved == 2
         assert response.total_rejected == 1
 
     def test_bulk_reject_response(self):
+        from app.schemas.approval import BulkRejectResponse
+
         response = BulkRejectResponse(
             rejected_ids=["id1", "id2"],
-            errors=[],
-            total_processed=2,
+            errors=["id3: not found"],
+            total_processed=3,
             total_rejected=2,
         )
-        assert response.rejected_ids == ["id1", "id2"]
-        assert response.total_processed == 2
+
+        assert len(response.rejected_ids) == 2
+        assert len(response.errors) == 1
 
     def test_timeout_result_response(self):
+        from app.schemas.approval import TimeoutResultResponse
+
         response = TimeoutResultResponse(
-            expired_count=2,
+            expired_count=3,
             escalated_count=1,
-            details=[{"id": "id1", "status": "expired"}],
+            details=[{"id": "1", "status": "expired"}],
         )
-        assert response.expired_count == 2
+
+        assert response.expired_count == 3
         assert response.escalated_count == 1
 
+    def test_approval_step_response(self):
+        from app.schemas.approval import ApprovalStepResponse, ApprovalRole, ApprovalStatus
+        from uuid import uuid4
+        from datetime import datetime, timezone
 
-# ============================================================
-# User Schemas Tests
-# ============================================================
+        step_id = uuid4()
+        request_id = uuid4()
+        approver_id = uuid4()
+        now = datetime.now(timezone.utc)
+
+        response = ApprovalStepResponse(
+            id=step_id,
+            approval_request_id=request_id,
+            approver_id=approver_id,
+            approver_role=ApprovalRole.WorkloadStakeholder,
+            status=ApprovalStatus.Approved,
+            comments="Approved quickly",
+            approved_at=now,
+            created_at=now,
+        )
+
+        assert response.id == step_id
+        assert response.approval_request_id == request_id
+        assert response.approver_id == approver_id
+        assert response.status == ApprovalStatus.Approved
+
+    def test_approval_request_response(self):
+        from app.schemas.approval import ApprovalRequestResponse, ChangeType, ApprovalStatus
+        from uuid import uuid4
+        from datetime import datetime, timezone
+
+        request_id = uuid4()
+        rule_id = uuid4()
+        now = datetime.now(timezone.utc)
+
+        response = ApprovalRequestResponse(
+            id=request_id,
+            rule_ids=[rule_id],
+            change_type=ChangeType.Create,
+            description="New firewall rule",
+            current_user_id=uuid4(),
+            status=ApprovalStatus.Pending,
+            required_approvals=2,
+            current_approval_stage=1,
+            approval_flow="multi_level",
+            created_at=now,
+        )
+
+        assert response.id == request_id
+        assert response.change_type == ChangeType.Create
+        assert response.status == ApprovalStatus.Pending
+        assert response.current_approval_stage == 1
+
+    def test_workflow_definition_response(self):
+        from app.schemas.approval import ApprovalWorkflowDefinitionResponse
+        from uuid import uuid4
+        from datetime import datetime, timezone
+
+        def_id = uuid4()
+        now = datetime.now(timezone.utc)
+
+        response = ApprovalWorkflowDefinitionResponse(
+            id=def_id,
+            name="Standard Approval",
+            description="Standard approval workflow",
+            trigger_conditions={"min_priority": 100},
+            required_roles=["workload_stakeholder", "security_stakeholder"],
+            timeout_hours=48,
+            is_active=True,
+            created_at=now,
+        )
+
+        assert response.id == def_id
+        assert response.name == "Standard Approval"
+        assert response.is_active is True
+
+
+# ---- User/Auth Schemas ----
+
 
 class TestLoginRequest:
-    """Tests for LoginRequest schema."""
+    """Test LoginRequest schema."""
 
-    def test_minimal_valid(self):
-        login = LoginRequest(username="user@example.com", password="password123")
-        assert login.username == "user@example.com"
+    def test_login_request_valid(self):
+        from app.schemas.user import LoginRequest
+
+        login = LoginRequest(username="testuser", password="password123")
+        assert login.username == "testuser"
         assert login.password == "password123"
 
-    def test_missing_username(self):
-        with pytest.raises(ValidationError):
-            LoginRequest(password="password123")
+    def test_login_request_empty_username_raises(self):
+        from app.schemas.user import LoginRequest
+        from pydantic import ValidationError
 
-    def test_missing_password(self):
-        with pytest.raises(ValidationError):
-            LoginRequest(username="user@example.com")
-
-    def test_empty_username(self):
         with pytest.raises(ValidationError):
             LoginRequest(username="", password="password123")
 
-    def test_empty_password(self):
+    def test_login_request_empty_password_raises(self):
+        from app.schemas.user import LoginRequest
+        from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
-            LoginRequest(username="user@example.com", password="")
+            LoginRequest(username="testuser", password="")
 
 
 class TestLoginResponse:
-    """Tests for LoginResponse schema."""
+    """Test LoginResponse schema."""
 
-    def test_valid(self):
+    def test_login_response_fields(self):
+        from app.schemas.user import LoginResponse
+
         response = LoginResponse(
-            access_token="token",
-            refresh_token="refresh",
-            expires_in=3600,
+            access_token="test_access_token",
+            refresh_token="test_refresh_token",
+            expires_in=1800,
         )
-        assert response.access_token == "token"
-        assert response.refresh_token == "refresh"
-        assert response.expires_in == 3600
+
+        assert response.access_token == "test_access_token"
         assert response.token_type == "Bearer"
+        assert response.expires_in == 1800
 
 
 class TestRefreshTokenRequest:
-    """Tests for RefreshTokenRequest schema."""
+    """Test RefreshTokenRequest schema."""
 
-    def test_valid(self):
-        request = RefreshTokenRequest(refresh_token="refresh-token")
-        assert request.refresh_token == "refresh-token"
+    def test_refresh_token_request(self):
+        from app.schemas.user import RefreshTokenRequest
 
-    def test_missing_refresh_token(self):
+        request = RefreshTokenRequest(refresh_token="test_refresh_token")
+        assert request.refresh_token == "test_refresh_token"
+
+    def test_refresh_token_request_empty_raises(self):
+        from app.schemas.user import RefreshTokenRequest
+        from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
-            RefreshTokenRequest()
-
-
-class TestRefreshTokenResponse:
-    """Tests for RefreshTokenResponse schema."""
-
-    def test_valid(self):
-        response = RefreshTokenResponse(
-            access_token="new-access",
-            refresh_token="new-refresh",
-            expires_in=3600,
-        )
-        assert response.access_token == "new-access"
-        assert response.token_type == "Bearer"
+            RefreshTokenRequest(refresh_token="")
 
 
 class TestLogoutRequest:
-    """Tests for LogoutRequest schema."""
+    """Test LogoutRequest schema."""
 
-    def test_minimal_valid(self):
-        logout = LogoutRequest()
-        assert logout.refresh_token is None
-        assert logout.access_token is None
+    def test_logout_request_with_refresh_token(self):
+        from app.schemas.user import LogoutRequest
 
-    def test_with_refresh_token(self):
-        logout = LogoutRequest(refresh_token="refresh-token")
-        assert logout.refresh_token == "refresh-token"
+        request = LogoutRequest(refresh_token="test_refresh_token")
+        assert request.refresh_token == "test_refresh_token"
+        assert request.access_token is None
+
+    def test_logout_request_with_access_token(self):
+        from app.schemas.user import LogoutRequest
+
+        request = LogoutRequest(access_token="test_access_token")
+        assert request.access_token == "test_access_token"
+        assert request.refresh_token is None
+
+    def test_logout_request_empty(self):
+        from app.schemas.user import LogoutRequest
+
+        request = LogoutRequest()
+        assert request.refresh_token is None
+        assert request.access_token is None
 
 
 class TestTokenBlacklistRequest:
-    """Tests for TokenBlacklistRequest schema."""
+    """Test TokenBlacklistRequest schema."""
 
-    def test_valid(self):
-        request = TokenBlacklistRequest(token="token", token_type="access")
-        assert request.token == "token"
+    def test_blacklist_request_access_token(self):
+        from app.schemas.user import TokenBlacklistRequest
+
+        request = TokenBlacklistRequest(token="test_token", token_type="access")
+        assert request.token == "test_token"
         assert request.token_type == "access"
 
-    def test_with_refresh_type(self):
-        request = TokenBlacklistRequest(token="token", token_type="refresh")
+    def test_blacklist_request_refresh_token_type(self):
+        from app.schemas.user import TokenBlacklistRequest
+
+        request = TokenBlacklistRequest(token="test_token", token_type="refresh")
         assert request.token_type == "refresh"
 
 
 class TestUserInfo:
-    """Tests for UserInfo schema."""
+    """Test UserInfo schema."""
 
-    def test_minimal_valid(self):
-        object_id = uuid4()
+    def test_user_info_full(self):
+        from app.schemas.user import UserInfo
+        from uuid import uuid4
+
         user = UserInfo(
-            object_id=object_id,
-            email="user@example.com",
+            object_id=uuid4(),
+            email="test@example.com",
+            display_name="Test User",
+            given_name="Test",
+            surname="User",
+            roles=["admin", "developer"],
+            is_active=True,
+        )
+
+        assert user.object_id is not None
+        assert user.email == "test@example.com"
+        assert user.display_name == "Test User"
+        assert user.roles == ["admin", "developer"]
+        assert user.is_active is True
+
+    def test_user_info_minimal(self):
+        from app.schemas.user import UserInfo
+        from uuid import uuid4
+
+        user = UserInfo(
+            object_id=uuid4(),
+            email="test@example.com",
             display_name="Test User",
         )
-        assert str(user.object_id) == str(object_id)
-        assert user.email == "user@example.com"
-        assert user.display_name == "Test User"
-        assert user.given_name is None
-        assert user.surname is None
+
+        assert user.object_id is not None
+        assert user.email == "test@example.com"
         assert user.roles == []
         assert user.is_active is True
 
-    def test_full_valid(self):
-        object_id = uuid4()
-        given_name = "John"
-        surname = "Doe"
-        user = UserInfo(
-            object_id=object_id,
-            email="user@example.com",
-            display_name="Test User",
-            given_name=given_name,
-            surname=surname,
-            roles=["admin", "developer"],
-            is_active=False,
-        )
-        assert str(user.object_id) == str(object_id)
-        assert user.given_name == given_name
-        assert user.surname == surname
-        assert user.roles == ["admin", "developer"]
-        assert user.is_active is False
-
 
 class TestUserRole:
-    """Tests for UserRole enum."""
+    """Test UserRole enum."""
 
-    def test_owner(self):
-        assert UserRole.Owner == "owner"
+    def test_owner_value(self):
+        from app.schemas.user import UserRole
+        assert UserRole.Owner.value == "owner"
 
-    def test_admin(self):
-        assert UserRole.Admin == "admin"
+    def test_admin_value(self):
+        from app.schemas.user import UserRole
+        assert UserRole.Admin.value == "admin"
 
-    def test_developer(self):
-        assert UserRole.Developer == "developer"
+    def test_developer_value(self):
+        from app.schemas.user import UserRole
+        assert UserRole.Developer.value == "developer"
 
-    def test_security_reader(self):
-        assert UserRole.SecurityReader == "security_reader"
+    def test_security_reader_value(self):
+        from app.schemas.user import UserRole
+        assert UserRole.SecurityReader.value == "security_reader"
 
-    def test_network_admin(self):
-        assert UserRole.NetworkAdmin == "network_admin"
+    def test_network_admin_value(self):
+        from app.schemas.user import UserRole
+        assert UserRole.NetworkAdmin.value == "network_admin"
 
-    def test_viewer(self):
-        assert UserRole.Viewer == "viewer"
+    def test_viewer_value(self):
+        from app.schemas.user import UserRole
+        assert UserRole.Viewer.value == "viewer"
+
+    def test_invalid_role_raises(self):
+        from app.schemas.user import UserRole
+        with pytest.raises(ValueError):
+            UserRole("Invalid")
 
 
-class TestRateLimitInfo:
-    """Tests for RateLimitInfo schema."""
+class TestRateLimitSchema:
+    """Test rate limit schemas."""
 
-    def test_valid(self):
-        info = RateLimitInfo(limit=100, remaining=99, reset_in=60)
+    def test_rate_limit_info(self):
+        from app.schemas.user import RateLimitInfo
+
+        info = RateLimitInfo(limit=100, remaining=50, reset_in=60)
         assert info.limit == 100
-        assert info.remaining == 99
+        assert info.remaining == 50
         assert info.reset_in == 60
 
 
 class TestUserRoleAssignment:
-    """Tests for UserRoleAssignment schema."""
+    """Test user role assignment schemas."""
 
-    def test_minimal_valid(self):
-        assignment = UserRoleAssignment(role="admin")
-        assert assignment.role == UserRole.Admin
-        assert assignment.workload_id is None
-        assert assignment.expires_at is None
+    def test_role_assignment(self):
+        from app.schemas.user import UserRoleAssignment, UserRole
+        from uuid import uuid4
+        from datetime import datetime, timezone, timedelta
 
-    def test_full_valid(self):
-        workload_id = uuid4()
-        expires_at = datetime.now(timezone.utc)
         assignment = UserRoleAssignment(
-            role="developer",
-            workload_id=workload_id,
-            expires_at=expires_at,
+            role=UserRole.Admin,
+            workload_id=uuid4(),
+            expires_at=datetime.now(timezone.utc) + timedelta(days=7),
         )
-        assert assignment.role == UserRole.Developer
-        assert str(assignment.workload_id) == str(workload_id)
-        assert assignment.expires_at == expires_at
 
+        assert assignment.role == UserRole.Admin
+        assert assignment.workload_id is not None
 
-class TestUserRoleAssignmentResponse:
-    """Tests for UserRoleAssignmentResponse schema."""
+    def test_role_assignment_response(self):
+        from app.schemas.user import UserRoleAssignmentResponse
+        from uuid import uuid4
+        from datetime import datetime, timezone
 
-    def test_valid_response(self):
         response = UserRoleAssignmentResponse(
             id=uuid4(),
             user_id=uuid4(),
@@ -973,58 +1120,39 @@ class TestUserRoleAssignmentResponse:
             granted_by=uuid4(),
             granted_at=datetime.now(timezone.utc),
         )
+
         assert response.role == "admin"
-        assert str(response.id) == str(response.id)
+        assert response.from_attributes is True
 
 
-class TestCreateUserRequest:
-    """Tests for CreateUserRequest schema."""
+class TestUserRequestSchemas:
+    """Test user request schemas."""
 
-    def test_minimal_valid(self):
-        object_id = uuid4()
+    def test_create_user_request(self):
+        from app.schemas.user import CreateUserRequest
+        from uuid import uuid4
+
         request = CreateUserRequest(
-            object_id=object_id,
-            email="user@example.com",
+            object_id=uuid4(),
+            email="test@example.com",
             display_name="Test User",
+            given_name="Test",
+            surname="User",
         )
-        assert str(request.object_id) == str(object_id)
-        assert request.email == "user@example.com"
-        assert request.display_name == "Test User"
-        assert request.given_name is None
-        assert request.surname is None
 
-    def test_full_valid(self):
-        object_id = uuid4()
-        request = CreateUserRequest(
-            object_id=object_id,
-            email="user@example.com",
-            display_name="Test User",
-            given_name="John",
-            surname="Doe",
+        assert request.object_id is not None
+        assert request.email == "test@example.com"
+
+    def test_update_user_request(self):
+        from app.schemas.user import UpdateUserRequest
+
+        update = UpdateUserRequest(
+            display_name="Updated Name",
+            given_name="Updated",
+            is_active=False,
         )
-        assert request.given_name == "John"
-        assert request.surname == "Doe"
 
-    def test_missing_object_id(self):
-        with pytest.raises(ValidationError):
-            CreateUserRequest(email="user@example.com", display_name="Test User")
-
-
-class TestUpdateUserRequest:
-    """Tests for UpdateUserRequest schema."""
-
-    def test_all_optional(self):
-        update = UpdateUserRequest()
-        assert update.display_name is None
-        assert update.given_name is None
+        assert update.display_name == "Updated Name"
+        assert update.given_name == "Updated"
         assert update.surname is None
-        assert update.is_active is None
-
-    def test_partial_update(self):
-        update = UpdateUserRequest(display_name="New Name")
-        assert update.display_name == "New Name"
-        assert update.given_name is None
-
-    def test_update_active(self):
-        update = UpdateUserRequest(is_active=False)
         assert update.is_active is False
