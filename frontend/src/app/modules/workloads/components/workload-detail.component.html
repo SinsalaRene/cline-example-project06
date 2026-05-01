@@ -1,0 +1,212 @@
+<div class="detail-container" *ngIf="!isLoading">
+  <div class="detail-header" *ngIf="workload">
+    <div class="header-left">
+      <button mat-icon-button routerLink="/workloads" class="back-button">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <div class="title-section">
+        <h1>{{ workload.name }}</h1>
+        <p class="description">{{ workload.description }}</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button mat-raised-button color="primary" (click)="editWorkload()">
+        <mat-icon>edit</mat-icon>
+        Edit
+      </button>
+      <button mat-raised-button color="warn" (click)="deleteWorkload()">
+        <mat-icon>delete</mat-icon>
+        Delete
+      </button>
+    </div>
+  </div>
+
+  <div class="detail-info" *ngIf="workload">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Workload Information</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="info-grid">
+          <div class="info-item">
+            <label>Status</label>
+            <span class="status-badge status-{{ workload.status }}">{{
+              workload.status
+            }}</span>
+          </div>
+          <div class="info-item">
+            <label>Type</label>
+            <span>{{ workload.workload_type }}</span>
+          </div>
+          <div class="info-item">
+            <label>Environment</label>
+            <span class="env-badge env-{{ workload.environment }}">{{
+              workload.environment
+            }}</span>
+          </div>
+          <div class="info-item">
+            <label>Owner</label>
+            <span>{{ workload.owner || "-" }}</span>
+          </div>
+          <div class="info-item">
+            <label>Contact</label>
+            <span>{{ workload.contact_email || "-" }}</span>
+          </div>
+          <div class="info-item">
+            <label>Resource Group</label>
+            <span>{{ workload.resource_group || "-" }}</span>
+          </div>
+          <div class="info-item">
+            <label>Azure Resource ID</label>
+            <span class="azure-id">{{
+              workload.azure_resource_id || "-"
+            }}</span>
+          </div>
+          <div class="info-item">
+            <label>Created</label>
+            <span>{{ formatDateTime(workload.created_at) }}</span>
+          </div>
+          <div class="info-item">
+            <label>Updated</label>
+            <span>{{ formatDateTime(workload.updated_at) }}</span>
+          </div>
+        </div>
+
+        <div
+          class="tags-section"
+          *ngIf="workload.tags && Object.keys(workload.tags).length > 0"
+        >
+          <label>Tags</label>
+          <div class="tags-list">
+            <mat-chip *ngFor="let tag of getTagsArray()">
+              {{ tag.key }}: {{ tag.value }}
+            </mat-chip>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Associated Rules Section -->
+  <div class="rules-section" *ngIf="workload">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Associated Rules</mat-card-title>
+        <mat-card-subtitle
+          >Rules associated with this workload</mat-card-subtitle
+        >
+      </mat-card-header>
+      <mat-card-content>
+        <div class="rules-toolbar">
+          <mat-form-field appearance="outline" class="search-rules">
+            <mat-label>Search rules</mat-label>
+            <input matInput placeholder="Search rules..." />
+          </mat-form-field>
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="showAssociateDialog()"
+          >
+            <mat-icon>add</mat-icon>
+            Associate Rule
+          </button>
+        </div>
+
+        <table mat-table [dataSource]="associatedRules" class="rules-table">
+          <!-- Name Column -->
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>Rule Name</th>
+            <td mat-cell *matCellDef="let rule">{{ rule.name }}</td>
+          </ng-container>
+
+          <!-- Priority Column -->
+          <ng-container matColumnDef="priority">
+            <th mat-header-cell *matHeaderCellDef>Priority</th>
+            <td mat-cell *matCellDef="let rule">{{ rule.priority }}</td>
+          </ng-container>
+
+          <!-- Action Column -->
+          <ng-container matColumnDef="action">
+            <th mat-header-cell *matHeaderCellDef>Action</th>
+            <td mat-cell *matCellDef="let rule">{{ rule.action }}</td>
+          </ng-container>
+
+          <!-- Protocol Column -->
+          <ng-container matColumnDef="protocol">
+            <th mat-header-cell *matHeaderCellDef>Protocol</th>
+            <td mat-cell *matCellDef="let rule">{{ rule.protocol }}</td>
+          </ng-container>
+
+          <!-- Association Type -->
+          <ng-container matColumnDef="associationType">
+            <th mat-header-cell *matHeaderCellDef>Type</th>
+            <td mat-cell *matCellDef="let rule">
+              <span
+                class="association-badge association-{{ rule.associatedType }}"
+              >
+                {{ rule.associatedType }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- Actions -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let rule">
+              <button
+                mat-icon-button
+                color="warn"
+                (click)="disassociateRule(rule.id)"
+                title="Disassociate"
+              >
+                <mat-icon>link_off</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr
+            mat-header-row
+            *matHeaderRowDef="[
+              'name',
+              'priority',
+              'action',
+              'protocol',
+              'associationType',
+              'actions',
+            ]"
+          ></tr>
+          <tr
+            mat-row
+            *matRowDef="
+              let row;
+              columns: [
+                'name',
+                'priority',
+                'action',
+                'protocol',
+                'associationType',
+                'actions',
+              ]
+            "
+          ></tr>
+        </table>
+
+        <div class="empty-rules" *ngIf="associatedRules.length === 0">
+          <p>No rules associated with this workload yet.</p>
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="showAssociateDialog()"
+          >
+            Associate a Rule
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
+
+<div class="loading-container" *ngIf="isLoading">
+  <mat-spinner [diameter]="50"></mat-spinner>
+  <p>Loading workload details...</p>
+</div>

@@ -1,0 +1,240 @@
+<div class="form-container">
+  <div class="form-header">
+    <div class="header-left">
+      <button mat-icon-button routerLink="/workloads" class="back-button">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <h1>{{ isEditMode ? "Edit Workload" : "Create Workload" }}</h1>
+    </div>
+  </div>
+
+  <div class="form-content" *ngIf="!isLoading">
+    <form [formGroup]="workloadForm" (ngSubmit)="onSubmit()">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Workload Details</mat-card-title>
+          <mat-card-subtitle
+            >Fill in the details for this workload</mat-card-subtitle
+          >
+        </mat-card-header>
+        <mat-card-content>
+          <div class="form-grid">
+            <!-- Name -->
+            <div class="form-field">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Workload Name *</mat-label>
+                <input
+                  matInput
+                  formControlName="name"
+                  placeholder="Enter workload name"
+                />
+                <mat-error
+                  *ngIf="workloadForm.get('name')?.hasError('required')"
+                >
+                  Workload name is required
+                </mat-error>
+                <mat-error
+                  *ngIf="workloadForm.get('name')?.hasError('minlength')"
+                >
+                  Name must be at least 3 characters
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- Description -->
+            <div class="form-field">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Description</mat-label>
+                <textarea
+                  matInput
+                  formControlName="description"
+                  rows="3"
+                  placeholder="Enter workload description"
+                ></textarea>
+              </mat-form-field>
+            </div>
+
+            <!-- Workload Type -->
+            <div class="form-field">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Workload Type *</mat-label>
+                <mat-select formControlName="workload_type">
+                  <mat-option
+                    *ngFor="let type of workloadTypes"
+                    [value]="type.value"
+                  >
+                    {{ type.label }}
+                  </mat-option>
+                </mat-select>
+                <mat-error
+                  *ngIf="
+                    workloadForm.get('workload_type')?.hasError('required')
+                  "
+                >
+                  Workload type is required
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- Environment -->
+            <div class="form-field">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Environment *</mat-label>
+                <mat-select formControlName="environment">
+                  <mat-option
+                    *ngFor="let env of environments"
+                    [value]="env.value"
+                  >
+                    {{ env.label }}
+                  </mat-option>
+                </mat-select>
+                <mat-error
+                  *ngIf="workloadForm.get('environment')?.hasError('required')"
+                >
+                  Environment is required
+                </mat-error>
+              </mat-form-field>
+            </div>
+
+            <!-- Status -->
+            <div class="form-field">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Status</mat-label>
+                <mat-select formControlName="status">
+                  <mat-option
+                    *ngFor="let status of statuses"
+                    [value]="status.value"
+                  >
+                    {{ status.label }}
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <!-- Resource Group -->
+            <div class="form-field">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Resource Group</mat-label>
+                <input
+                  matInput
+                  formControlName="resource_group"
+                  placeholder="Enter resource group"
+                />
+              </mat-form-field>
+            </div>
+
+            <!-- Azure Resource ID -->
+            <div class="form-field">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Azure Resource ID</mat-label>
+                <input
+                  matInput
+                  formControlName="azure_resource_id"
+                  placeholder="Enter Azure Resource ID"
+                />
+              </mat-form-field>
+            </div>
+
+            <!-- Owner -->
+            <div class="form-field">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Owner</mat-label>
+                <input
+                  matInput
+                  formControlName="owner"
+                  placeholder="Enter owner name"
+                />
+              </mat-form-field>
+            </div>
+
+            <!-- Contact Email -->
+            <div class="form-field">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Contact Email</mat-label>
+                <input
+                  matInput
+                  formControlName="contact_email"
+                  type="email"
+                  placeholder="Enter contact email"
+                />
+                <mat-error
+                  *ngIf="workloadForm.get('contact_email')?.hasError('email')"
+                >
+                  Please enter a valid email address
+                </mat-error>
+              </mat-form-field>
+            </div>
+          </div>
+
+          <!-- Tags Section -->
+          <div class="tags-section">
+            <div class="tags-header">
+              <h3>Tags</h3>
+              <button
+                type="button"
+                mat-raised-button
+                color="primary"
+                size="small"
+                (click)="addTagField()"
+              >
+                <mat-icon>add</mat-icon>
+                Add Tag
+              </button>
+            </div>
+            <div formArrayName="tags" class="tags-list">
+              <div
+                *ngFor="let tag of getTagsArray(); let i = index"
+                class="tag-item"
+              >
+                <mat-form-field appearance="outline" class="tag-key">
+                  <mat-label>Key</mat-label>
+                  <input
+                    matInput
+                    [(ngModel)]="tag.key"
+                    [ngModel]="
+                      workloadForm.get('tags')?.value?.[tag.key] || tag.key
+                    "
+                  />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="tag-value">
+                  <mat-label>Value</mat-label>
+                  <input matInput [(ngModel)]="tag.value" />
+                </mat-form-field>
+                <button
+                  type="button"
+                  mat-icon-button
+                  color="warn"
+                  (click)="removeTag(i)"
+                >
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Form Actions -->
+          <div class="form-actions">
+            <button type="button" mat-raised-button (click)="onCancel()">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              mat-raised-button
+              color="primary"
+              [disabled]="submitLoading || workloadForm.invalid"
+            >
+              <mat-spinner
+                *ngIf="submitLoading"
+                [diameter]="20"
+                style="position: absolute"
+              ></mat-spinner>
+              <span *ngIf="!submitLoading">{{
+                isEditMode ? "Update" : "Create"
+              }}</span>
+            </button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </form>
+  </div>
+</div>

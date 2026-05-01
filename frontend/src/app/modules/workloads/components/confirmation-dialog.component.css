@@ -1,0 +1,30 @@
+.confirmation-dialog {
+    padding: 8px 0;
+}
+
+.dialog-header {
+    margin-bottom: 16px;
+}
+
+.dialog-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 500;
+    color: #333;
+}
+
+.dialog-content {
+    margin-bottom: 24px;
+}
+
+.dialog-content p {
+    margin: 0;
+    color: #555;
+    line-height: 1.5;
+}
+
+.dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
