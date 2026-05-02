@@ -72,19 +72,34 @@ def create_engine_instance(database_url: Optional[str] = None):
     if is_sqlite:
         @event.listens_for(engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
-            cursor = dbapi_connection.cursor()
-            cursor.execute("PRAGMA foreign_keys=ON")
-            cursor.close()
-
-            # Enable WAL mode for better concurrency
-            cursor.execute("PRAGMA journal_mode=WAL")
-            cursor.close()
+            try:
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA foreign_keys=ON")
+                # Enable WAL mode for better concurrency
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.close()
+            except Exception:
+                # Handle race condition where cursor is closed
+                pass
 
     return engine
 
 
 # Create engine with configured settings
-engine = create_engine_instance()
+_engine = create_engine_instance()
+
+# Expose engine and get_engine for external access
+engine = _engine
+
+
+def get_engine():
+    """Get the SQLAlchemy engine instance.
+    
+    Returns:
+        sqlalchemy.engine.Engine: The SQLAlchemy engine instance.
+    """
+    return _engine
+
 
 # Session factory configuration
 SessionLocal = sessionmaker(

@@ -61,6 +61,12 @@ class Settings(BaseSettings):
     smtp_host: Optional[str] = None
     smtp_port: int = 587
 
+    # Production / Monitoring
+    error_tracking_dsn: Optional[str] = None
+    enable_metrics: bool = True
+    log_format: str = "json"
+    sentry_sample_rate: float = 0.1
+
     # OpenAPI/JWT Configuration
     auth_metadata_url: str = (
         "https://login.microsoftonline.com/common/.well-known/openid-configuration"

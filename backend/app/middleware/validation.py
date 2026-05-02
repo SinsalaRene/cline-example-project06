@@ -103,6 +103,13 @@ class ValidationMiddleware:
 
         # GET/DELETE/HEAD/OPTIONS – skip body validation
         method = scope.get("method", "").upper()
+        path = scope.get("path", "")
+
+        # Skip all validation for health and metrics endpoints (no body needed)
+        if path.startswith(("/health", "/readyz", "/startup", "/healthz", "/metrics")):
+            await self.app(scope, receive, send)
+            return
+
         if method in {"GET", "DELETE", "HEAD", "OPTIONS"}:
             await self.app(scope, receive, send)
             return
