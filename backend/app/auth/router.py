@@ -1,13 +1,67 @@
 """
-Authentication router with endpoints for login, refresh, logout, and token management.
+Authentication API router with endpoints for login, refresh, logout, and token management.
 
-Endpoints:
-- POST /auth/login - Authenticate and receive access + refresh tokens
-- POST /auth/refresh - Obtain new access token using refresh token
-- POST /auth/logout - Revoke refresh token
-- POST /auth/revoke - Revoke any token (access or refresh)
-- GET /auth/me - Get current authenticated user info
-"""
+This module provides OAuth 2.0 Bearer token-based authentication endpoints.
+All endpoints (except ``/auth/login``) require a valid ``Bearer`` token in the
+``Authorization`` header.
+
+## Authentication Flow
+
+The application uses a dual-token approach:
+
+1. **Login** - Obtain an access token (short-lived) and refresh token (long-lived)
+2. **Access** - Use the access token in the ``Authorization: Bearer <token>`` header
+3. **Refresh** - Use the refresh token to obtain a new access token pair
+4. **Logout** - Revoke the refresh token to invalidate the session
+
+## Request Format
+
+All endpoints that require authentication use the ``Bearer`` scheme::
+
+    Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+
+For login, the request body must match the ``LoginRequest`` Pydantic schema::
+
+    {
+        "username": "admin",
+        "password": "secure-password"
+    }
+
+For refresh and logout, the request body must match the ``RefreshTokenRequest`` schema::
+
+    {
+        "refresh_token": "eyJhbGciOiJIUzI1NiIs..."
+    }
+
+## Response Format
+
+Successful authentication responses follow this structure::
+
+    {
+        "access_token": "eyJhbGciOiJIUzI1NiIs...",
+        "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+        "expires_in": 1800,
+        "token_type": "Bearer"
+    }
+
+## Error Codes
+
+| Code         | Status | Description                                  |
+|-------------|--------|----------------------------------------------|
+| AUTH_REQUIRED    | 401  | Missing or invalid authentication token       |
+| INVALID_CREDENTIALS | 401 | Invalid username or password                  |
+| INVALID_TOKEN    | 401  | Token is invalid or expired                     |
+| RATE_LIMIT       | 429  | Rate limit exceeded (brute-force protection)   |
+| VALIDATION_ERROR | 422  | Request body failed Pydantic validation         |
+| INTERNAL_ERROR   | 500  | Unexpected server-side error                    |
+
+## Token Lifetimes
+
+| Token Type    | Default Lifetime    | Storage           |
+|---------------|---------------------|-------------------|
+| Access Token  | 30 minutes          | Client-side       |
+| Refresh Token | 7 days (default)    | Redis / Database  |
+"""  # noqa: E501
 
 import logging
 from datetime import datetime, timezone
@@ -44,11 +98,73 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
+# ============================================================================
+# Authentication Endpoints
+# ============================================================================
+
+
 @router.post(
     "/login",
     response_model=LoginResponse,
     summary="Login and get tokens",
-    description="Authenticate with username and password to receive access and refresh tokens."
+    description=(
+        "Authenticate with username and password to receive access and refresh tokens.\n\n"
+        "The access token is short-lived (30 minutes by default) and should be used "
+        "for API requests. The refresh token is long-lived (7 days by default) and "
+        "should be used to obtain new access tokens.\n\n"
+        "**Example Request**:\n"
+        "```json\n"
+        "{\n"
+        '  "username": "admin",\n'
+        '  "password": "secure-password"\n'
+        "}\n"
+        "```\n\n"
+        "**Example Response**:\n"
+        "```json\n"
+        "{\n"
+        '  "access_token": "eyJhbGciOiJIUzI1NiIs...",\n'
+        '  "refresh_token": "eyJhbGciOiJIUzI1NiIs...",\n'
+        '  "expires_in": 1800,\n'
+        '  "token_type": "Bearer"\n'
+        "}\n"
+        "```\n\n"
+        "**Rate Limited**: Maximum 10 attempts per minute per IP."
+    ),
+    responses={
+        200: {
+            "description": "Authentication successful - tokens issued",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "access_token": "eyJhbGciOiJIUzI1NiIs...",
+                        "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+                        "expires_in": 1800,
+                        "token_type": "Bearer"
+                    }
+                }
+            },
+        },
+        400: {
+            "description": "Bad Request - Missing credentials",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Invalid credentials: username and password are required"
+                    }
+                }
+            },
+        },
+        429: {
+            "description": "Rate limit exceeded - Too many login attempts",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Too many login attempts, please try again later."
+                    }
+                }
+            },
+        },
+    },
 )
 async def login(
     request: LoginRequest,
@@ -61,7 +177,12 @@ async def login(
     This endpoint accepts username/password credentials and returns both
     an access token (short-lived) and a refresh token (long-lived).
 
-    Rate limited to prevent brute-force attacks.
+    Rate limited to prevent brute-force attacks (10 attempts per minute per IP).
+
+    **Request Body**: Must contain ``username`` and ``password`` (required).
+
+    **Response**: ``LoginResponse`` containing access token, refresh token,
+    expiry time, and token type.
     """
     # Rate limiting
     client_ip = req.client.host if req.client else "unknown"
@@ -110,7 +231,61 @@ async def login(
     "/refresh",
     response_model=RefreshTokenResponse,
     summary="Refresh access token",
-    description="Use a refresh token to obtain a new access token. Implements token rotation."
+    description=(
+        "Use a refresh token to obtain a new access token. Implements token rotation "
+        "(the old refresh token is invalidated and a new one issued).\n\n"
+        "**Example Request**:\n"
+        "```json\n"
+        "{\n"
+        '  "refresh_token": "eyJhbGciOiJIUzI1NiIs..."\n'
+        "}\n"
+        "```\n\n"
+        "**Example Response**:\n"
+        "```json\n"
+        "{\n"
+        '  "access_token": "eyJhbGciOiJIUzI1NiIs...",\n'
+        '  "refresh_token": "eyJhbGciOiJIUzI1NiIs...",\n'
+        '  "expires_in": 1800,\n'
+        '  "token_type": "Bearer"\n'
+        "}\n"
+        "```\n\n"
+        "**Rate Limited**: Maximum 20 requests per minute per IP."
+    ),
+    responses={
+        200: {
+            "description": "Token refreshed successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "access_token": "eyJhbGciOiJIUzI1NiIs...",
+                        "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+                        "expires_in": 1800,
+                        "token_type": "Bearer"
+                    }
+                }
+            },
+        },
+        401: {
+            "description": "Unauthorized - Invalid or expired refresh token",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Invalid or expired refresh token"
+                    }
+                }
+            },
+        },
+        429: {
+            "description": "Rate limit exceeded",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Too many refresh requests, please try again later."
+                    }
+                }
+            },
+        },
+    },
 )
 async def refresh(
     request: RefreshTokenRequest,
@@ -123,7 +298,11 @@ async def refresh(
     This endpoint issues new access + refresh token pairs while invalidating
     the old refresh token (token rotation).
 
-    Rate limited to prevent abuse.
+    Rate limited to prevent abuse (20 requests per minute per IP).
+
+    **Request Body**: Must contain ``refresh_token`` (required).
+
+    **Response**: ``RefreshTokenResponse`` with new access and refresh tokens.
     """
     # Rate limiting
     client_ip = req.client.host if req.client else "unknown"
@@ -172,7 +351,48 @@ async def refresh(
 @router.post(
     "/logout",
     summary="Logout and revoke token",
-    description="Revoke the provided refresh token to logout."
+    description=(
+        "Revoke the provided refresh token to logout. Once revoked, the refresh "
+        "token cannot be used to obtain new access tokens.\n\n"
+        "**Example Request**:\n"
+        "```json\n"
+        "{\n"
+        '  "refresh_token": "eyJhbGciOiJIUzI1NiIs..."\n'
+        "}\n"
+        "```\n\n"
+        "**Example Response**:\n"
+        "```json\n"
+        "{\n"
+        '  "message": "Successfully logged out",\n'
+        '  "token_revoked": true\n'
+        "}\n"
+        "```"
+    ),
+    responses={
+        200: {
+            "description": "Logout successful",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "success": {
+                            "summary": "Token revoked",
+                            "value": {
+                                "message": "Successfully logged out",
+                                "token_revoked": True
+                            }
+                        },
+                        "already_expired": {
+                            "summary": "Token already expired",
+                            "value": {
+                                "message": "Token already expired or invalid",
+                                "token_revoked": False
+                            }
+                        }
+                    }
+                }
+            },
+        },
+    },
 )
 async def logout(
     request: RefreshTokenRequest,
@@ -183,6 +403,10 @@ async def logout(
 
     The refresh token is added to the blacklist and can no longer be used
     to obtain new access tokens.
+
+    **Request Body**: Must contain ``refresh_token`` (required).
+
+    **Response**: Dictionary with ``message`` and ``token_revoked`` boolean.
     """
     revoked = revoke_token(request.refresh_token)
     if revoked:
@@ -194,7 +418,43 @@ async def logout(
 @router.post(
     "/revoke",
     summary="Revoke any token",
-    description="Revoke an access or refresh token by adding it to the blacklist."
+    description=(
+        "Revoke an access or refresh token by adding it to the blacklist.\n\n"
+        "**Example Request**:\n"
+        "```json\n"
+        "{\n"
+        '  "token": "eyJhbGciOiJIUzI1NiIs...",\n'
+        '  "token_type": "refresh"\n'
+        "}\n"
+        "```\n\n"
+        "**Example Response**:\n"
+        "```json\n"
+        "{\n"
+        '  "message": "Refresh token revoked",\n'
+        '  "token_type": "refresh",\n'
+        '  "revoked": true\n'
+        "}\n"
+        "```"
+    ),
+    responses={
+        200: {
+            "description": "Token revoked successfully",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "success": {
+                            "summary": "Token revoked",
+                            "value": {
+                                "message": "Token revoked",
+                                "token_type": "access",
+                                "revoked": True
+                            }
+                        }
+                    }
+                }
+            },
+        },
+    },
 )
 async def revoke(
     request: TokenBlacklistRequest,
@@ -204,6 +464,11 @@ async def revoke(
     Revoke a token (access or refresh).
 
     The token is added to the blacklist and can no longer be used.
+
+    **Request Body**: Must contain ``token`` (required) and ``token_type``
+    (``"access"`` or ``"refresh"``).
+
+    **Response**: Dictionary with ``message``, ``token_type``, and ``revoked`` fields.
     """
     revoked = revoke_token(request.token)
     if revoked:
@@ -223,7 +488,47 @@ async def revoke(
     "/me",
     response_model=UserInfo,
     summary="Get current user info",
-    description="Get information about the currently authenticated user."
+    description=(
+        "Get information about the currently authenticated user.\n\n"
+        "Requires a valid access token in the ``Authorization: Bearer <token>`` header.\n\n"
+        "**Example Request**: ``GET /auth/me`` with ``Authorization: Bearer <token>``\n\n"
+        "**Example Response**:\n"
+        "```json\n"
+        "{\n"
+        '  "sub": "1234567890abcdef",\n'
+        '  "username": "admin",\n'
+        '  "email": "admin@example.com",\n'
+        '  "name": "Admin User",\n'
+        '  "roles": ["admin"]\n'
+        "}\n"
+        "```"
+    ),
+    responses={
+        200: {
+            "description": "Current user information",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "sub": "1234567890abcdef",
+                        "username": "admin",
+                        "email": "admin@example.com",
+                        "name": "Admin User",
+                        "roles": ["admin"]
+                    }
+                }
+            },
+        },
+        401: {
+            "description": "Unauthorized - Missing or invalid token",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Could not validate credentials"
+                    }
+                }
+            },
+        },
+    },
 )
 async def get_me(
     current_user: UserInfo = Depends(get_current_user)
@@ -232,5 +537,10 @@ async def get_me(
     Get information about the currently authenticated user.
 
     Requires a valid access token in the Authorization header.
+
+    **Authentication**: Bearer token required.
+
+    **Response**: ``UserInfo`` containing user ``sub``, ``username``, ``email``,
+    ``name``, and ``roles``.
     """
     return current_user
