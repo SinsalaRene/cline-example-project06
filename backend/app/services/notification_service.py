@@ -28,6 +28,7 @@ from app.models.approval import (
 
 class NotificationType(str, PyEnum):
     """Types of notifications that can be sent."""
+    # Approval-related
     APPROVAL_REQUEST_CREATED = "approval_request_created"
     APPROVAL_PENDING = "approval_pending"
     APPROVAL_APPROVED = "approval_approved"
@@ -36,6 +37,11 @@ class NotificationType(str, PyEnum):
     APPROVAL_ESCALATED = "approval_escalated"
     APPROVAL_BULK_COMPLETED = "approval_bulk_completed"
     ESCALATION_TRIGGERED = "escalation_triggered"
+    
+    # Cross-module integration types (Task 7.2)
+    AUDIT_LOG = "audit_log"
+    AZURE_SYNC = "azure_sync"
+    SYSTEM = "system"
 
 
 class NotificationChannel(str, PyEnum):
@@ -244,6 +250,75 @@ class NotificationService:
         
         return all_success
 
+    def send_notification(
+        self,
+        db: Session,
+        *,
+        notification_type: NotificationType,
+        recipient_email: str = "",
+        recipient_name: str = "",
+        title: str = "",
+        body: str = "",
+        user_id: Optional[UUID] = None,
+        additional_data: Optional[dict] = None,
+        channel: Optional[NotificationChannel] = None,
+    ) -> bool:
+        """Send a generic notification (not tied to an approval request).
+        
+        Used by audit workflow and notification workflow for non-approval events.
+        
+        Args:
+            db: SQLAlchemy database session.
+            notification_type: Type of notification.
+            recipient_email: Email address of the recipient.
+            recipient_name: Name of the recipient.
+            title: Notification title.
+            body: Notification body.
+            user_id: UUID of the user who triggered the notification.
+            additional_data: Additional data to include.
+            channel: Specific channel to use.
+        
+        Returns:
+            True if notification was successfully sent.
+        """
+        try:
+            self._logger.info(
+                "Sending generic notification type=%s to=%s",
+                notification_type, recipient_email,
+            )
+            
+            message = NotificationMessage(
+                notification_type=notification_type,
+                recipient_email=recipient_email,
+                recipient_name=recipient_name,
+                title=title,
+                body=body,
+                data=additional_data or {},
+            )
+            
+            channels_to_use = channel if channel else NotificationChannel.ALL
+            success = self._deliver_notification(db, message, channels_to_use)
+            
+            if success:
+                self._logger.info(
+                    "Generic notification delivered: type=%s recipient=%s",
+                    notification_type, recipient_email,
+                )
+            else:
+                self._logger.warning(
+                    "Failed to deliver generic notification: type=%s",
+                    notification_type,
+                )
+            
+            return success
+            
+        except Exception:
+            self._logger.exception(
+                "Error sending generic notification type=%s",
+                notification_type,
+            )
+            return False
+
     def send_escalation_notification(
         self,
         db: Session,
@@ -394,6 +469,33 @@ class NotificationService:
                     f"Request ID: {approval_request.id}\n"
                     f"Escalated to: {additional_data.get('escalated_to_role', 'N/A')}"
                 ),
+            },
+            # Cross-module integration templates
+            NotificationType.AUDIT_LOG: {
+                "title": additional_data.get("title", "Audit Event"),
+                "body": additional_data.get(
+                    "body",
+                    f"Audit event recorded: action={additional_data.get('action', 'unknown')}",
+                ),
+            },
+            NotificationType.AZURE_SYNC: {
+                "title": additional_data.get(
+                    "title", "Azure Sync Completed"
+                ),
+                "body": additional_data.get(
+                    "body",
+                    (
+                        f"Azure sync completed: synced={additional_data.get('rules_synced', 0)}, "
+                        f"updated={additional_data.get('rules_updated', 0)}, "
+                        f"created={additional_data.get('rules_created', 0)}, "
+                        f"deleted={additional_data.get('rules_deleted', 0)}, "
+                        f"errors={additional_data.get('error_count', 0)}"
+                    ),
+                ),
+            },
+            NotificationType.SYSTEM: {
+                "title": additional_data.get("title", "System Notification"),
+                "body": additional_data.get("body", "A system notification has been generated."),
             },
         }
         

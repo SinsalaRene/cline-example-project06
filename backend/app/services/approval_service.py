@@ -21,6 +21,9 @@ from app.models.approval import (
     ChangeType, ApprovalWorkflowDefinition
 )
 from app.services.notification_service import NotificationService, NotificationType
+from app.workflows.approval_workflow import ApprovalWorkflow
+from app.workflows.audit_workflow import AuditWorkflow
+from app.workflows.notification_workflow import NotificationWorkflow, NotificationChannel
 
 logger = logging.getLogger(__name__)
 
@@ -38,16 +41,31 @@ class ApprovalService:
             return service.create_approval_request(db, ...)
     """
 
-    def __init__(self, logger_name: str = __name__, default_timeout_hours: int = 48):
+    def __init__(
+        self,
+        logger_name: str = __name__,
+        default_timeout_hours: int = 48,
+        approval_workflow: Optional[ApprovalWorkflow] = None,
+        audit_workflow: Optional[AuditWorkflow] = None,
+        notification_workflow: Optional[NotificationWorkflow] = None,
+    ):
         """Initialize the ApprovalService.
 
         Args:
             logger_name: Name for the logger instance.
             default_timeout_hours: Default timeout for approval requests in hours.
+            approval_workflow: Optional ApprovalWorkflow instance.
+            audit_workflow: Optional AuditWorkflow instance.
+            notification_workflow: Optional NotificationWorkflow instance.
         """
         self._logger = logging.getLogger(logger_name)
         self._default_timeout_hours = default_timeout_hours
         self._logger.debug("ApprovalService initialized with timeout=%dh", default_timeout_hours)
+        
+        # Wire up workflows for cross-module integration
+        self._approval_workflow = approval_workflow
+        self._audit_workflow = audit_workflow
+        self._notification_workflow = notification_workflow
 
     def create_approval_request(
         self,
@@ -161,6 +179,9 @@ class ApprovalService:
     ) -> ApprovalStep:
         """Approve a step in the approval workflow.
 
+        Uses the ApprovalWorkflow to apply rule changes and the AuditWorkflow
+        to log the approval. Sends notifications via NotificationWorkflow.
+
         Args:
             db: SQLAlchemy database session.
             step_id: UUID of the approval step to approve.
@@ -197,11 +218,56 @@ class ApprovalService:
         if current_stage:
             self._logger.info("Next pending step %s for request %s", current_stage.id, approval_request.id)
         else:
-            # All stages complete
+            # All stages complete - trigger rule changes
             approval_request.status = ApprovalStatus.Approved
             approval_request.completed_at = datetime.now(timezone.utc)
             db.flush()
-            self._logger.info("Approval request %s fully approved", approval_request.id)
+
+            self._logger.info("Approval request %s fully approved - applying rule changes", approval_request.id)
+            
+            # Use ApprovalWorkflow to apply rule changes
+            if self._approval_workflow:
+                try:
+                    rule_ids = approval_request.rule_uuids
+                    self._approval_workflow.apply_approval_to_rules(
+                        db=db,
+                        approval_request=approval_request,
+                        rule_ids=rule_ids,
+                        user_id=approver_id,
+                    )
+                except Exception:
+                    self._logger.exception("Failed to apply approval to rules via workflow")
+
+            # Use AuditWorkflow to log the approval
+            if self._audit_workflow:
+                try:
+                    self._audit_workflow.log_approval_approved(
+                        db=db,
+                        user_id=approver_id,
+                        approval_id=approval_request.id,
+                        comment=comment,
+                    )
+                except Exception:
+                    self._logger.exception("Failed to log approval in audit workflow")
+
+            # Use NotificationWorkflow to send notifications
+            if self._notification_workflow:
+                try:
+                    rule_ids = approval_request.rule_uuids
+                    recipients = self._approval_workflow._get_approval_recipients(
+                        db, approval_request
+                    )
+                    for recipient in recipients:
+                        self._notification_workflow.send_approval_notification(
+                            db=db,
+                            approval_request=approval_request,
+                            notification_type=NotificationType.APPROVAL_APPROVED,
+                            channel=NotificationChannel.EMAIL,
+                            recipient_email=recipient.get("email", ""),
+                            recipient_name=recipient.get("name", "User"),
+                        )
+                except Exception:
+                    self._logger.exception("Failed to send notification via workflow")
 
         try:
             db.commit()
