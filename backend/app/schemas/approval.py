@@ -85,7 +85,7 @@ class ApprovalRequestApprove(BaseModel):
 
 class ApprovalRequestReject(BaseModel):
     """Schema for rejecting an approval request."""
-    comment: str
+    comment: str = Field(..., min_length=1)
 
 
 class ApprovalRequestComment(BaseModel):
@@ -190,7 +190,7 @@ class BulkApproveResponse(BaseModel):
 class BulkRejectResponse(BaseModel):
     """Response schema for bulk rejection operation."""
     rejected_ids: list[str]
-    errors: list[dict]
+    errors: list[str]
     total_processed: int
     total_rejected: int
 

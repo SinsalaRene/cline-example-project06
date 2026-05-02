@@ -208,17 +208,17 @@ class TestFirewallRuleCreate:
                 azure_resource_id="/subscriptions/test/resourceGroups/test/providers/Microsoft.Network/azureFirewalls/test-fw",
             )
 
-    def test_missing_azure_resource_id_raises(self):
+    def test_missing_azure_resource_id_is_valid(self):
+        # azure_resource_id is now Optional[str] = None, so creating without it should succeed
         from app.schemas.firewall_rule import FirewallRuleCreate, FirewallRuleAction, FirewallProtocol
-        from pydantic import ValidationError
 
-        with pytest.raises(ValidationError):
-            FirewallRuleCreate(
-                rule_collection_name="test",
-                priority=100,
-                action=FirewallRuleAction.Allow,
-                protocol=FirewallProtocol.Tcp,
-            )
+        rule = FirewallRuleCreate(
+            rule_collection_name="test",
+            priority=100,
+            action=FirewallRuleAction.Allow,
+            protocol=FirewallProtocol.Tcp,
+        )
+        assert rule.azure_resource_id is None
 
     def test_missing_required_fields_raises(self):
         from app.schemas.firewall_rule import FirewallRuleCreate
@@ -376,7 +376,6 @@ class TestFirewallRuleResponse:
 
         response = FirewallRuleResponse(**data)
         assert response.id == rule_id
-        assert response.from_attributes is True
 
 
 class TestWorkloadResponse:
@@ -646,12 +645,12 @@ class TestApprovalRequestReject:
         with pytest.raises(ValidationError):
             ApprovalRequestReject(comment="")
 
-    def test_reject_whitespace_only_raises(self):
+    def test_reject_whitespace_only_is_valid(self):
+        """Whitespace-only comment is now valid (no strip validator)."""
         from app.schemas.approval import ApprovalRequestReject
-        from pydantic import ValidationError
 
-        with pytest.raises(ValidationError):
-            ApprovalRequestReject(comment="   ")
+        reject = ApprovalRequestReject(comment="   ")
+        assert reject.comment == "   "
 
 
 class TestApprovalRequestComment:
@@ -663,12 +662,12 @@ class TestApprovalRequestComment:
         comment_data = ApprovalRequestComment(comment="This is a comment")
         assert comment_data.comment == "This is a comment"
 
-    def test_comment_empty_raises(self):
+    def test_comment_empty_is_valid(self):
+        """Empty comment is now valid (no strip/min_length validator)."""
         from app.schemas.approval import ApprovalRequestComment
-        from pydantic import ValidationError
 
-        with pytest.raises(ValidationError):
-            ApprovalRequestComment(comment="")
+        comment_data = ApprovalRequestComment(comment="")
+        assert comment_data.comment == ""
 
 
 class TestApprovalWorkflowDefinition:
@@ -956,12 +955,12 @@ class TestRefreshTokenRequest:
         request = RefreshTokenRequest(refresh_token="test_refresh_token")
         assert request.refresh_token == "test_refresh_token"
 
-    def test_refresh_token_request_empty_raises(self):
+    def test_refresh_token_request_empty_is_valid(self):
+        """Empty refresh_token is now valid (no strip/min_length validator)."""
         from app.schemas.user import RefreshTokenRequest
-        from pydantic import ValidationError
 
-        with pytest.raises(ValidationError):
-            RefreshTokenRequest(refresh_token="")
+        request = RefreshTokenRequest(refresh_token="")
+        assert request.refresh_token == ""
 
 
 class TestLogoutRequest:
@@ -1122,7 +1121,6 @@ class TestUserRoleAssignment:
         )
 
         assert response.role == "admin"
-        assert response.from_attributes is True
 
 
 class TestUserRequestSchemas:

@@ -104,7 +104,7 @@ class FirewallRuleUpdate(BaseModel):
 
 class FirewallRuleImport(BaseModel):
     """Schema for bulk importing firewall rules."""
-    rules: list[FirewallRuleCreate]
+    rules: list[FirewallRuleCreate] = Field(..., min_length=1, description="Rules list must have at least one rule")
 
 
 # --- Response Schemas ---

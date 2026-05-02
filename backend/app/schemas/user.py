@@ -14,8 +14,8 @@ from pydantic import BaseModel, Field
 
 class LoginRequest(BaseModel):
     """Schema for login request."""
-    username: str = Field(..., description="Username or email")
-    password: str = Field(..., description="Password")
+    username: str = Field(..., min_length=1, description="Username or email")
+    password: str = Field(..., min_length=1, description="Password")
 
 
 class LoginResponse(BaseModel):

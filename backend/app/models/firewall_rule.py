@@ -89,7 +89,8 @@ class FirewallRuleStatus(str, PyEnum):
 
 def _utc_now():
     """Return the current UTC datetime."""
-    return datetime.now(timezone.utc)
+    from datetime import datetime, timezone as tz
+    return datetime.now(tz.utc)
 
 
 class Workload(Base):

@@ -95,8 +95,8 @@ class User(Base):
     given_name = Column(String(255), nullable=True)
     surname = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True)  # Proper boolean type
-    created_at = Column(DateTime, server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=True)
 
     # Relationships - using string references to avoid circular imports
     owned_workloads = relationship("Workload", foreign_keys="[Workload.owner_id]", back_populates="owner")

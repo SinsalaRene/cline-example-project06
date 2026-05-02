@@ -136,13 +136,12 @@ class FirewallService:
         Raises:
             ValueError: If the rule is not found.
         """
-        from fastapi import HTTPException
         self._logger.info("get_firewall_rule called for rule_id %s", rule_id)
         rule = db.query(FirewallRule).filter(FirewallRule.id == rule_id).first()
         if not rule:
             msg = f"Firewall rule {rule_id} not found"
             self._logger.warning(msg)
-            raise HTTPException(status_code=404, detail=msg)
+            raise ValueError(msg)
         self._logger.debug("Retrieved firewall rule %s", rule_id)
         return rule
 

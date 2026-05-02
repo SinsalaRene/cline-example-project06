@@ -86,7 +86,7 @@ class TestApprovalServiceNotificationIntegration(unittest.TestCase):
 
     def test_notification_service_send_approval_notification(self):
         """Test that notification service builds and sends approval notification."""
-        with patch("smtplib.SMTP"), patch("app.services.notification_service.requests"):
+        with patch("smtplib.SMTP"), patch("app.services.notification_service.NotificationService._send_webhook", return_value=True), patch("app.services.notification_service.NotificationService._create_in_app_notification", return_value=True):
             service = NotificationService(enable_email=True, enable_in_app=True)
             mock_db = MagicMock()
             mock_request = MagicMock()

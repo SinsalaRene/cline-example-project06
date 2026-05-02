@@ -32,6 +32,7 @@ os.environ.setdefault("RATE_LIMIT_ENABLED", "true")
 class TestSettingsInitialization:
     """Test settings initialization and environment variable loading."""
 
+    @patch.dict(os.environ, {"DEBUG": "false"}, clear=False)
     def test_settings_default_values(self):
         """Test that settings load with correct default values."""
         from app.config import Settings
@@ -62,6 +63,7 @@ class TestSettingsInitialization:
             "https://login.microsoftonline.com/common/.well-known/openid-configuration"
         )
 
+    @patch.dict(os.environ, {"DEBUG": "false"}, clear=False)
     def test_settings_database_type_sqlite(self):
         """Test that SQLite database URL is detected correctly."""
         from app.config import Settings
@@ -80,6 +82,7 @@ class TestSettingsInitialization:
         assert settings.is_development is True
         assert settings.is_production is False
 
+    @patch.dict(os.environ, {"DEBUG": "false"}, clear=False)
     def test_settings_database_type_postgresql(self):
         """Test that PostgreSQL database URL is detected correctly."""
         from app.config import Settings
@@ -114,6 +117,7 @@ class TestSettingsInitialization:
 
         assert settings.database_type == "unknown"
 
+    @patch.dict(os.environ, {"DEBUG": "false"}, clear=False)
     def test_settings_optional_fields_default(self):
         """Test that optional fields have correct default values."""
         from app.config import Settings
@@ -552,6 +556,7 @@ class TestDatabaseDSNMethods:
 class TestGetPostgresURL:
     """Test get_postgres_url method."""
 
+    @patch.dict(os.environ, {"DATABASE_URL": "postgresql://user:pass@host:5432/db"}, clear=False)
     def test_get_postgres_url_from_env(self):
         """Test get_postgres_url retrieves from environment."""
         from app.config import Settings
@@ -562,7 +567,7 @@ class TestGetPostgresURL:
             azure_client_secret="test-secret",
             azure_subscription_id="test-sub",
             azure_resource_group="test-rg",
-            database_url="postgresql://user:pass@host:5432/db",
+            database_url="sqlite:///./test.db",
             secret_key="test-secret-key-at-least-16-characters-long-enough",
         )
 

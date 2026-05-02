@@ -14,6 +14,12 @@ from typing import Optional
 from uuid import UUID
 from sqlalchemy.orm import Session
 
+try:
+    import requests
+except ImportError:
+    # requests is optional - used only for webhook notifications
+    requests = None
+
 from app.models.approval import (
     ApprovalRequest, ApprovalStep, ApprovalStatus,
     ChangeType, ApprovalRole
@@ -391,7 +397,15 @@ class NotificationService:
             },
         }
         
-        if notification_type not in templates:
+        # Handle non-enum objects with .value attribute
+        nt_value = getattr(notification_type, 'value', notification_type)
+        nt = notification_type
+        if isinstance(notification_type, type) or not hasattr(notification_type, 'value'):
+            nt = nt_value
+        else:
+            nt = type(notification_type)(nt_value) if hasattr(notification_type, '__class__') else notification_type
+        
+        if notification_type not in templates and nt_value not in templates:
             raise ValueError(f"Unknown notification type: {notification_type}")
         
         template = templates[notification_type]
@@ -485,14 +499,14 @@ class NotificationService:
             self._logger.exception("Failed to send email to %s", message.recipient_email)
             return False
 
-    def _build_email_message(self, message: NotificationMessage) -> str:
+    def _build_email_message(self, message: NotificationMessage) -> "MIMEMultipart":
         """Build an email message from a NotificationMessage.
         
         Args:
             message: The notification message to convert.
         
         Returns:
-            Email message string.
+            MIMEMultipart email message object.
         """
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
@@ -511,7 +525,7 @@ Sent: {message.timestamp}
         """
         msg.attach(MIMEText(text, "plain"))
         
-        return msg.as_string()
+        return msg
 
     def _create_in_app_notification(
         self,
@@ -567,9 +581,11 @@ Sent: {message.timestamp}
         
         self._logger.info("Sending webhook for type=%s", message.notification_type)
         
+        if requests is None:
+            self._logger.warning("requests library not available for webhook delivery")
+            return False
+        
         try:
-            import requests
-            
             payload = {
                 "type": message.notification_type.value,
                 "title": message.title,
@@ -587,7 +603,7 @@ Sent: {message.timestamp}
                 timeout=10,
             )
             
-            if response.status_code >= 400:
+            if response is None or response.status_code >= 400:
                 self._logger.warning(
                     "Webhook returned status %d: %s",
                     response.status_code, response.text,
