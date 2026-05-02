@@ -2,6 +2,16 @@
 
 A comprehensive solution for managing Azure Firewall rules with approval workflows, RBAC, and audit trails.
 
+## AI Generation
+
+This project was completly generated with local AI of various Qwen3.6 models with minimal prompting at the beginning and generation of prompts which where pasted into the cline vscode extension. 
+
+Most of the codebase was generated directly under windows and llama.cpp. 
+Later switching to WSL because python and docker etc. are only installed under wsl. 
+That also means that most the the real pytest optimizations were done under WSL. 
+
+No actual tests where done to test if this project can actually be run until now. This was purley planned and created by local AI to test its capabilities. 
+
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
