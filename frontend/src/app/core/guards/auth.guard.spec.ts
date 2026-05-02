@@ -1,197 +1,263 @@
 import { TestBed } from '@angular/core/testing';
-import { Router, UrlTree } from '@angular/router';
-import { RouterTestingModule } from '@angular/router/testing';
-import { AuthGuard, ReverseAuthGuard, PublicGuard, RoleGuard, PermissionGuard } from './auth.guard';
+import { Router, RouterStateSnapshot, UrlTree } from '@angular/router';
 import { AuthService } from '../services/auth.service';
-import { BehaviorSubject } from 'rxjs';
+import { AuthGuard, ReverseAuthGuard, PublicGuard, RoleGuard, PermissionGuard } from './auth.guard';
 
-describe('Auth Guards', () => {
-    let authGuard: AuthGuard;
-    let reverseAuthGuard: ReverseAuthGuard;
-    let publicGuard: PublicGuard;
-    let roleGuard: RoleGuard;
-    let permissionGuard: PermissionGuard;
-    let authService: AuthService;
-    let router: Router;
-
-    const mockUser = {
-        object_id: 'test-user-id',
-        display_name: 'Test User',
-        email: 'test@example.com',
-        roles: ['admin', 'editor']
-    };
+describe('AuthGuard', () => {
+    let guard: AuthGuard;
+    let authService: jasmine.SpyObj<AuthService>;
+    let router: jasmine.SpyObj<Router>;
 
     beforeEach(() => {
+        const authServiceSpy = jasmine.createSpyObj('AuthService', ['isLoggedIn'], { isLoggedIn$: of(false) });
+        const routerSpy = jasmine.createSpyObj('Router', ['createUrlTree']);
+
         TestBed.configureTestingModule({
-            imports: [
-                RouterTestingModule.withRoutes([])
-            ],
             providers: [
                 AuthGuard,
+                { provide: AuthService, useValue: authServiceSpy },
+                { provide: Router, useValue: routerSpy }
+            ]
+        });
+
+        guard = TestBed.inject(AuthGuard);
+        authService = TestBed.inject(AuthService) as jasmine.SpyObj<AuthService>;
+        router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
+    });
+
+    it('should be created', () => {
+        expect(guard).toBeTruthy();
+    });
+
+    describe('when user is authenticated', () => {
+        it('should return true', () => {
+            authService.isLoggedIn.and.returnValue(true);
+            const result = guard.canActivate({} as any, {} as RouterStateSnapshot);
+            expect(result).toBe(true);
+        });
+    });
+
+    describe('when user is not authenticated', () => {
+        it('should redirect to login', () => {
+            authService.isLoggedIn.and.returnValue(false);
+            router.createUrlTree.and.returnValue({} as UrlTree);
+            const result = guard.canActivate({} as any, {} as RouterStateSnapshot);
+            expect(router.createUrlTree).toHaveBeenCalledWith(['/login']);
+        });
+    });
+});
+
+describe('ReverseAuthGuard', () => {
+    let guard: ReverseAuthGuard;
+    let authService: jasmine.SpyObj<AuthService>;
+    let router: jasmine.SpyObj<Router>;
+
+    beforeEach(() => {
+        const authServiceSpy = jasmine.createSpyObj('AuthService', ['isLoggedIn'], { isLoggedIn$: of(false) });
+        const routerSpy = jasmine.createSpyObj('Router', ['createUrlTree']);
+
+        TestBed.configureTestingModule({
+            providers: [
                 ReverseAuthGuard,
+                { provide: AuthService, useValue: authServiceSpy },
+                { provide: Router, useValue: routerSpy }
+            ]
+        });
+
+        guard = TestBed.inject(ReverseAuthGuard);
+        authService = TestBed.inject(AuthService) as jasmine.SpyObj<AuthService>;
+        router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
+    });
+
+    it('should be created', () => {
+        expect(guard).toBeTruthy();
+    });
+
+    describe('when user is already authenticated', () => {
+        it('should redirect to dashboard', () => {
+            authService.isLoggedIn.and.returnValue(true);
+            router.createUrlTree.and.returnValue({} as UrlTree);
+            const result = guard.canActivate({} as any, {} as RouterStateSnapshot);
+            expect(router.createUrlTree).toHaveBeenCalledWith(['/dashboard']);
+        });
+    });
+
+    describe('when user is not authenticated', () => {
+        it('should allow access', () => {
+            authService.isLoggedIn.and.returnValue(false);
+            const result = guard.canActivate({} as any, {} as RouterStateSnapshot);
+            expect(result).toBe(true);
+        });
+    });
+});
+
+describe('PublicGuard', () => {
+    let guard: PublicGuard;
+    let authService: jasmine.SpyObj<AuthService>;
+    let router: jasmine.SpyObj<Router>;
+
+    beforeEach(() => {
+        const authServiceSpy = jasmine.createSpyObj('AuthService', ['isLoggedIn'], { isLoggedIn$: of(false) });
+        const routerSpy = jasmine.createSpyObj('Router', ['createUrlTree']);
+
+        TestBed.configureTestingModule({
+            providers: [
                 PublicGuard,
+                { provide: AuthService, useValue: authServiceSpy },
+                { provide: Router, useValue: routerSpy }
+            ]
+        });
+
+        guard = TestBed.inject(PublicGuard);
+        authService = TestBed.inject(AuthService) as jasmine.SpyObj<AuthService>;
+        router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
+    });
+
+    it('should be created', () => {
+        expect(guard).toBeTruthy();
+    });
+
+    describe('when user is authenticated', () => {
+        it('should redirect to dashboard', () => {
+            authService.isLoggedIn.and.returnValue(true);
+            router.createUrlTree.and.returnValue({} as UrlTree);
+            const result = guard.canActivate({} as any, {} as RouterStateSnapshot);
+            expect(router.createUrlTree).toHaveBeenCalledWith(['/dashboard']);
+        });
+    });
+
+    describe('when user is not authenticated', () => {
+        it('should allow access', () => {
+            authService.isLoggedIn.and.returnValue(false);
+            const result = guard.canActivate({} as any, {} as RouterStateSnapshot);
+            expect(result).toBe(true);
+        });
+    });
+});
+
+describe('RoleGuard', () => {
+    let guard: RoleGuard;
+    let authService: jasmine.SpyObj<AuthService>;
+    let router: jasmine.SpyObj<Router>;
+
+    beforeEach(() => {
+        const authServiceSpy = jasmine.createSpyObj('AuthService', ['isLoggedIn', 'userSubject'], { userSubject: new BehaviorSubject(null) });
+        const routerSpy = jasmine.createSpyObj('Router', ['createUrlTree']);
+
+        TestBed.configureTestingModule({
+            providers: [
                 RoleGuard,
+                { provide: AuthService, useValue: authServiceSpy },
+                { provide: Router, useValue: routerSpy }
+            ]
+        });
+
+        guard = TestBed.inject(RoleGuard);
+        authService = TestBed.inject(AuthService) as jasmine.SpyObj<AuthService>;
+        router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
+    });
+
+    it('should be created', () => {
+        expect(guard).toBeTruthy();
+    });
+
+    describe('when user is not authenticated', () => {
+        it('should redirect to login', () => {
+            authService.isLoggedIn.and.returnValue(false);
+            router.createUrlTree.and.returnValue({} as UrlTree);
+            const result = guard.canActivate({ data: { roles: ['admin'] } } as any, {} as RouterStateSnapshot);
+            expect(router.createUrlTree).toHaveBeenCalledWith(['/login']);
+        });
+    });
+
+    describe('when user is authenticated with required role', () => {
+        it('should allow access', () => {
+            authService.isLoggedIn.and.returnValue(true);
+            (authService as any).userSubject.next({ roles: ['admin', 'user'] });
+            const result = guard.canActivate({ data: { roles: ['admin'] } } as any, {} as RouterStateSnapshot);
+            expect(result).toBe(true);
+        });
+    });
+
+    describe('when user is authenticated without required role', () => {
+        it('should redirect to unauthorized', () => {
+            authService.isLoggedIn.and.returnValue(true);
+            (authService as any).userSubject.next({ roles: ['user'] });
+            router.createUrlTree.and.returnValue({} as UrlTree);
+            const result = guard.canActivate({ data: { roles: ['admin'] } } as any, {} as RouterStateSnapshot);
+            expect(router.createUrlTree).toHaveBeenCalledWith(['/unauthorized']);
+        });
+    });
+
+    describe('when multiple roles are required', () => {
+        it('should allow access if user has any of the required roles', () => {
+            authService.isLoggedIn.and.returnValue(true);
+            (authService as any).userSubject.next({ roles: ['editor'] });
+            const result = guard.canActivate({ data: { roles: ['admin', 'editor'] } } as any, {} as RouterStateSnapshot);
+            expect(result).toBe(true);
+        });
+    });
+});
+
+describe('PermissionGuard', () => {
+    let guard: PermissionGuard;
+    let authService: jasmine.SpyObj<AuthService>;
+    let router: jasmine.SpyObj<Router>;
+
+    beforeEach(() => {
+        const authServiceSpy = jasmine.createSpyObj('AuthService', ['isLoggedIn', 'hasPermission'], { isLoggedIn$: of(false) });
+        const routerSpy = jasmine.createSpyObj('Router', ['createUrlTree']);
+
+        TestBed.configureTestingModule({
+            providers: [
                 PermissionGuard,
-                AuthService,
-            ],
+                { provide: AuthService, useValue: authServiceSpy },
+                { provide: Router, useValue: routerSpy }
+            ]
         });
 
-        authGuard = TestBed.inject(AuthGuard);
-        reverseAuthGuard = TestBed.inject(ReverseAuthGuard);
-        publicGuard = TestBed.inject(PublicGuard);
-        roleGuard = TestBed.inject(RoleGuard);
-        permissionGuard = TestBed.inject(PermissionGuard);
-        authService = TestBed.inject(AuthService);
-        router = TestBed.inject(Router);
+        guard = TestBed.inject(PermissionGuard);
+        authService = TestBed.inject(AuthService) as jasmine.SpyObj<AuthService>;
+        router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
     });
 
-    // ========== AuthGuard Tests ==========
+    it('should be created', () => {
+        expect(guard).toBeTruthy();
+    });
 
-    describe('AuthGuard', () => {
-        it('should be created', () => {
-            expect(authGuard).toBeTruthy();
-        });
-
-        it('should return true if user is logged in', () => {
-            // Simulate logged in state
-            authService['userSubject'].next(mockUser);
-            const result = authGuard.canActivate(null as any, null as any);
-            expect(result).toBe(true);
-        });
-
-        it('should redirect to login if user is not logged in', () => {
-            // Simulate logged out state
-            authService['userSubject'].next(null);
-            const result = authGuard.canActivate(null as any, null as any);
-            expect(result).toBeTruthy();
+    describe('when user is not authenticated', () => {
+        it('should redirect to login', () => {
+            authService.isLoggedIn.and.returnValue(false);
+            router.createUrlTree.and.returnValue({} as UrlTree);
+            const result = guard.canActivate({ data: { permission: 'rules:create' } } as any, {} as RouterStateSnapshot);
+            expect(router.createUrlTree).toHaveBeenCalledWith(['/login']);
         });
     });
 
-    // ========== ReverseAuthGuard Tests ==========
-
-    describe('ReverseAuthGuard', () => {
-        it('should be created', () => {
-            expect(reverseAuthGuard).toBeTruthy();
-        });
-
-        it('should redirect to dashboard if user is already logged in', () => {
-            authService['userSubject'].next(mockUser);
-            const result = reverseAuthGuard.canActivate(null as any, null as any);
-            expect(result).toBeTruthy();
-        });
-
-        it('should return true if user is not logged in', () => {
-            authService['userSubject'].next(null);
-            const result = reverseAuthGuard.canActivate(null as any, null as any);
+    describe('when no permission is required', () => {
+        it('should allow access', () => {
+            authService.isLoggedIn.and.returnValue(true);
+            const result = guard.canActivate({ data: {} } as any, {} as RouterStateSnapshot);
             expect(result).toBe(true);
         });
     });
 
-    // ========== PublicGuard Tests ==========
-
-    describe('PublicGuard', () => {
-        it('should be created', () => {
-            expect(publicGuard).toBeTruthy();
-        });
-
-        it('should return true if user is not logged in', () => {
-            authService['userSubject'].next(null);
-            const result = publicGuard.canActivate(null as any, null as any);
+    describe('when user has the required permission', () => {
+        it('should allow access', () => {
+            authService.isLoggedIn.and.returnValue(true);
+            authService.hasPermission.and.returnValue(true);
+            const result = guard.canActivate({ data: { permission: 'rules:create' } } as any, {} as RouterStateSnapshot);
             expect(result).toBe(true);
-        });
-
-        it('should redirect to dashboard if user is already logged in', () => {
-            authService['userSubject'].next(mockUser);
-            const result = publicGuard.canActivate(null as any, null as any);
-            expect(result).toBeTruthy();
         });
     });
 
-    // ========== RoleGuard Tests ==========
-
-    describe('RoleGuard', () => {
-        it('should be created', () => {
-            expect(roleGuard).toBeTruthy();
-        });
-
-        it('should return true if user has the required role', () => {
-            authService['userSubject'].next(mockUser);
-            const route = {
-                data: { roles: ['admin'] },
-                firstChild: null
-            };
-            const result = roleGuard.canActivate(route as any, null as any);
-            expect(result).toBe(true);
-        });
-
-        it('should redirect to unauthorized if user lacks the required role', () => {
-            const userWithoutAdmin = { ...mockUser, roles: ['viewer'] };
-            authService['userSubject'].next(userWithoutAdmin);
-            const route = {
-                data: { roles: ['admin'] },
-                firstChild: null
-            };
-            const result = roleGuard.canActivate(route as any, null as any);
-            expect(result).toBeTruthy();
-        });
-
-        it('should redirect to login if user is not logged in', () => {
-            authService['userSubject'].next(null);
-            const route = {
-                data: { roles: ['admin'] },
-                firstChild: null
-            };
-            const result = roleGuard.canActivate(route as any, null as any);
-            expect(result).toBeTruthy();
-        });
-    });
-
-    // ========== PermissionGuard Tests ==========
-
-    describe('PermissionGuard', () => {
-        it('should be created', () => {
-            expect(permissionGuard).toBeTruthy();
-        });
-
-        it('should return true if user has the required permission', () => {
-            authService['userSubject'].next(mockUser);
-            const route = {
-                data: { permission: 'admin' },
-                firstChild: null
-            };
-            const result = permissionGuard.canActivate(route as any, null as any);
-            expect(result).toBe(true);
-        });
-
-        it('should redirect to unauthorized if user lacks the required permission', () => {
-            const userWithoutPermission = { ...mockUser, roles: ['viewer'] };
-            authService['userSubject'].next(userWithoutPermission);
-            const route = {
-                data: { permission: 'admin' },
-                firstChild: null
-            };
-            const result = permissionGuard.canActivate(route as any, null as any);
-            expect(result).toBeTruthy();
-        });
-
-        it('should redirect to login if user is not logged in', () => {
-            authService['userSubject'].next(null);
-            const route = {
-                data: { permission: 'admin' },
-                firstChild: null
-            };
-            const result = permissionGuard.canActivate(route as any, null as any);
-            expect(result).toBeTruthy();
-        });
-
-        it('should return true if no permission is specified', () => {
-            authService['userSubject'].next(mockUser);
-            const route = {
-                data: {},
-                firstChild: null
-            };
-            const result = permissionGuard.canActivate(route as any, null as any);
-            expect(result).toBe(true);
+    describe('when user lacks required permission', () => {
+        it('should redirect to unauthorized', () => {
+            authService.isLoggedIn.and.returnValue(true);
+            authService.hasPermission.and.returnValue(false);
+            router.createUrlTree.and.returnValue({} as UrlTree);
+            const result = guard.canActivate({ data: { permission: 'rules:create' } } as any, {} as RouterStateSnapshot);
+            expect(router.createUrlTree).toHaveBeenCalledWith(['/unauthorized']);
         });
     });
 });

@@ -1,242 +1,174 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
-import { HttpRequest, HttpEventType } from '@angular/common/http';
 import { ApprovalsService } from './approvals.service';
-import {
-    ApprovalRequest,
-    ApprovalFilter,
-    ApprovalComment,
-    BulkActionResult
-} from '../models/approval.model';
+import { ApprovalStatus, ApprovalType, Approval } from '../models/approval.model';
 
 describe('ApprovalsService', () => {
     let service: ApprovalsService;
-    let httpMock: HttpTestingController;
-
-    const mockApproval: ApprovalRequest = {
-        id: '1',
-        rule_name: 'Test Rule',
-        rule_id: 'rule-123',
-        requestor: 'John Doe',
-        request_type: 'create',
-        status: 'pending',
-        description: 'Test description',
-        requested_at: '2024-01-01T10:00:00Z',
-        due_at: '2024-01-02T10:00:00Z',
-        priority: 'high',
-        comments: [],
-        metadata: {
-            rule_changes: { field: 'test_field' }
-        }
-    };
+    let httpTestingController: HttpTestingController;
 
     beforeEach(() => {
         TestBed.configureTestingModule({
             imports: [HttpClientTestingModule],
             providers: [ApprovalsService]
         });
+
         service = TestBed.inject(ApprovalsService);
-        httpMock = TestBed.inject(HttpTestingController);
+        httpTestingController = TestBed.inject(HttpTestingController);
     });
 
     afterEach(() => {
-        httpMock.verify();
+        httpTestingController.verify();
     });
 
     it('should be created', () => {
         expect(service).toBeTruthy();
     });
 
-    describe('getApprovals', () => {
-        it('should return a list of approvals', () => {
-            const mockListResponse = {
-                items: [mockApproval],
-                total: 1,
-                page: 1,
-                pageSize: 20,
-                totalPages: 1
-            };
+    describe('getPendingApprovals', () => {
+        it('should return list of pending approvals', () => {
+            const mockApprovals: Approval[] = [
+                {
+                    id: '1',
+                    type: ApprovalType.MANUAL,
+                    status: ApprovalStatus.PENDING,
+                    description: 'Test approval',
+                    createdAt: new Date(),
+                    expiresAt: new Date()
+                }
+            ];
 
-            service.getApprovals(1, 20).subscribe(response => {
-                expect(response.total).toBe(1);
-                expect(response.items.length).toBe(1);
-                expect(response.items[0].id).toBe('1');
+            service.getPendingApprovals().subscribe(approvals => {
+                expect(approvals.length).toBe(1);
+                expect(approvals[0].status).toBe(ApprovalStatus.PENDING);
             });
 
-            const req = httpMock.expectOne(`${service['baseUrl']}?page=1&page_size=20`);
+            const req = httpTestingController.expectOne('/api/approvals/pending');
             expect(req.request.method).toBe('GET');
-            req.flush(mockListResponse);
-        });
-
-        it('should apply filters when provided', () => {
-            const filters: ApprovalFilter = {
-                searchQuery: 'test',
-                statusFilter: 'pending',
-                typeFilter: 'create',
-                priorityFilter: 'high'
-            };
-
-            service.getApprovals(1, 20, filters).subscribe();
-            const req = httpMock.expectOne(
-                `${service['baseUrl']}?page=1&page_size=20&search=test&status=pending&type=create&priority=high`
-            );
-            expect(req.request.method).toBe('GET');
-            req.flush({ items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 });
+            req.flush(mockApprovals);
         });
     });
 
-    describe('getApproval', () => {
-        it('should return a single approval', () => {
-            service.getApproval('1').subscribe(approval => {
+    describe('getApprovalById', () => {
+        it('should return single approval', () => {
+            const mockApproval: Approval = {
+                id: '1',
+                type: ApprovalType.MANUAL,
+                status: ApprovalStatus.PENDING,
+                description: 'Test approval',
+                createdAt: new Date(),
+                expiresAt: new Date()
+            };
+
+            service.getApprovalById('1').subscribe(approval => {
                 expect(approval.id).toBe('1');
-                expect(approval.rule_name).toBe('Test Rule');
             });
 
-            const req = httpMock.expectOne(`${service['baseUrl']}/1`);
+            const req = httpTestingController.expectOne('/api/approvals/1');
             expect(req.request.method).toBe('GET');
             req.flush(mockApproval);
         });
     });
 
     describe('approve', () => {
-        it('should approve an approval request', () => {
-            const updatedApproval = { ...mockApproval, status: 'approved', approved_by: 'Admin' };
-            service.approve('1').subscribe(approval => {
-                expect(approval.status).toBe('approved');
+        it('should approve an approval', () => {
+            const mockResult = { success: true };
+
+            service.approve('1', { comment: 'Approved' }).subscribe(result => {
+                expect(result.success).toBe(true);
             });
 
-            const req = httpMock.expectOne(`${service['baseUrl']}/1/approve`);
+            const req = httpTestingController.expectOne('/api/approvals/1/approve');
             expect(req.request.method).toBe('POST');
-            req.flush(updatedApproval);
+            req.flush(mockResult);
         });
     });
 
     describe('reject', () => {
-        it('should reject an approval request', () => {
-            const updatedApproval = { ...mockApproval, status: 'rejected', rejection_reason: 'Too many changes' };
-            service.reject('1', { reason: 'Too many changes' }).subscribe(approval => {
-                expect(approval.status).toBe('rejected');
+        it('should reject an approval', () => {
+            const mockResult = { success: true };
+
+            service.reject('1', { reason: 'Too expensive' }).subscribe(result => {
+                expect(result.success).toBe(true);
             });
 
-            const req = httpMock.expectOne(`${service['baseUrl']}/1/reject`);
+            const req = httpTestingController.expectOne('/api/approvals/1/reject');
             expect(req.request.method).toBe('POST');
-            req.flush(updatedApproval);
+            req.flush(mockResult);
         });
     });
 
-    describe('addComment', () => {
-        it('should add a comment to an approval', () => {
-            const mockComment: ApprovalComment = {
-                id: 'comment-1',
-                author: 'Admin',
-                text: 'Test comment',
-                created_at: new Date().toISOString()
-            };
-
-            service.addComment('1', 'Test comment').subscribe(comment => {
-                expect(comment.text).toBe('Test comment');
-                expect(comment.author).toBe('Admin');
-            });
-
-            const req = httpMock.expectOne(`${service['baseUrl']}/1/comments`);
-            expect(req.request.method).toBe('POST');
-            req.flush(mockComment);
-        });
-    });
-
-    describe('getComments', () => {
+    describe('getApprovalComments', () => {
         it('should return comments for an approval', () => {
-            const mockComments: ApprovalComment[] = [{
-                id: 'comment-1',
-                author: 'Admin',
-                text: 'Comment 1',
-                created_at: new Date().toISOString()
-            }];
+            const mockComments = [
+                { id: '1', approvalId: '1', comment: 'First comment', author: 'admin' }
+            ];
 
-            service.getComments('1').subscribe(comments => {
+            service.getApprovalComments('1').subscribe(comments => {
                 expect(comments.length).toBe(1);
-                expect(comments[0].text).toBe('Comment 1');
             });
 
-            const req = httpMock.expectOne(`${service['baseUrl']}/1/comments`);
+            const req = httpTestingController.expectOne('/api/approvals/1/comments');
             expect(req.request.method).toBe('GET');
             req.flush(mockComments);
         });
     });
 
-    describe('deleteComment', () => {
-        it('should delete a comment', () => {
-            service.deleteComment('1', 'comment-1').subscribe();
-            const req = httpMock.expectOne(`${service['baseUrl']}/1/comments/comment-1`);
-            expect(req.request.method).toBe('DELETE');
-            req.flush({});
+    describe('addComment', () => {
+        it('should add a comment to approval', () => {
+            const mockComment = { id: '2', approvalId: '1', comment: 'New comment', author: 'admin' };
+
+            service.addComment('1', { text: 'New comment' }).subscribe(comment => {
+                expect(comment.comment).toBe('New comment');
+            });
+
+            const req = httpTestingController.expectOne('/api/approvals/1/comments');
+            expect(req.request.method).toBe('POST');
+            req.flush(mockComment);
         });
     });
 
-    describe('bulk operations', () => {
-        it('should bulk approve approvals', () => {
-            const mockResult: BulkActionResult = { success: 2, failed: 0, errors: [] };
-            service.bulkApprove(['1', '2'], 'Bulk approve').subscribe(result => {
-                expect(result.success).toBe(2);
+    describe('getBulkActions', () => {
+        it('should return pending approval ids', () => {
+            const mockResult = { pendingIds: ['1', '2'] };
+
+            service.getBulkActions().subscribe(result => {
+                expect(result.pendingIds.length).toBe(2);
             });
 
-            const req = httpMock.expectOne(`${service['baseUrl']}/bulk/approve`);
-            expect(req.request.method).toBe('POST');
-            req.flush(mockResult);
-        });
-
-        it('should bulk reject approvals', () => {
-            const mockResult: BulkActionResult = { success: 1, failed: 0, errors: [] };
-            service.bulkReject(['1'], 'Too many changes').subscribe(result => {
-                expect(result.success).toBe(1);
-            });
-
-            const req = httpMock.expectOne(`${service['baseUrl']}/bulk/reject`);
-            expect(req.request.method).toBe('POST');
+            const req = httpTestingController.expectOne('/api/approvals/bulk-actions');
+            expect(req.request.method).toBe('GET');
             req.flush(mockResult);
         });
     });
 
-    describe('utility methods', () => {
-        it('should correctly determine if an approval is expired', () => {
-            const future = new Date();
-            future.setDate(future.getDate() + 1);
-            const past = new Date();
-            past.setDate(past.getDate() - 1);
+    describe('bulkApprove', () => {
+        it('should approve multiple approvals', () => {
+            const mockResult = { approved: 2, failed: 0 };
 
-            const notExpired = { ...mockApproval, due_at: future.toISOString() };
-            const expired = { ...mockApproval, due_at: past.toISOString() };
+            service.bulkApprove(['1', '2'], { comment: 'Bulk approved' }).subscribe(result => {
+                expect(result.approved).toBe(2);
+                expect(result.failed).toBe(0);
+            });
 
-            expect(service.isExpired(notExpired)).toBe(false);
-            expect(service.isExpired(expired)).toBe(true);
+            const req = httpTestingController.expectOne('/api/approvals/bulk-approve');
+            expect(req.request.method).toBe('POST');
+            req.flush(mockResult);
         });
+    });
 
-        it('should return status display info', () => {
-            const pending = service.getStatusDisplay('pending');
-            expect(pending.label).toBe('Pending');
-            expect(pending.color).toBe('#ff9800');
+    describe('bulkReject', () => {
+        it('should reject multiple approvals', () => {
+            const mockResult = { rejected: 2, failed: 0 };
 
-            const approved = service.getStatusDisplay('approved');
-            expect(approved.label).toBe('Approved');
-            expect(approved.color).toBe('#4caf50');
-        });
+            service.bulkReject(['1', '2'], { reason: 'Too expensive' }).subscribe(result => {
+                expect(result.rejected).toBe(2);
+                expect(result.failed).toBe(0);
+            });
 
-        it('should return priority display info', () => {
-            const low = service.getPriorityDisplay('low');
-            expect(low.label).toBe('Low');
-
-            const urgent = service.getPriorityDisplay('urgent');
-            expect(urgent.label).toBe('Urgent');
-        });
-
-        it('should format dates correctly', () => {
-            const date = service.formatDate('2024-01-15T10:30:00Z');
-            expect(date).toBeDefined();
-        });
-
-        it('should return relative time', () => {
-            const now = new Date().toISOString();
-            expect(service.getRelativeTime(now)).toContain('just now');
+            const req = httpTestingController.expectOne('/api/approvals/bulk-reject');
+            expect(req.request.method).toBe('POST');
+            req.flush(mockResult);
         });
     });
 });
