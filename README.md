@@ -12,6 +12,63 @@ That also means that most the the real pytest optimizations were done under WSL.
 
 No actual tests where done to test if this project can actually be run until now. This was purley planned and created by local AI to test its capabilities. 
 
+### Llama.cpp
+
+> On Windows start
+
+```bash
+.\llama-server.exe `
+  -m M:\LLM-Models\Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ3_M.gguf `
+  -ngl 999 `
+  --n-cpu-moe 6 `
+  --flash-attn 1 `
+  --cache-type-k q4_0 --cache-type-v q4_0 `  
+  -b 256 -ub 512 `
+  -t 24 `
+  --jinja `
+  --no-mmap `
+   -c 163840 `
+  --host 0.0.0.0 `
+  --port 8080  
+```
+
+> Switch to WSL, this struggled hard when fixing unit tests of the health checks implemented in 7.3
+
+```bash
+./build/bin/llama-server \
+  -m ../LLM-Models/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ3_M.gguf \
+  --port 8080 \
+  -ngl 99 --n-cpu-moe 6 \
+  -c 163840 \
+  --jinja \
+  --flash-attn 1 \
+  --cache-type-k q4_0 --cache-type-v q4_0 \
+  -t 10 --threads-batch 10 \
+  -b 512 -ub 1536 \
+  --no-mmap
+```
+
+
+> Last few prompts from tasks/TASKS_03_TO_10_COMPACT.md
+```bash
+./build/bin/llama-server \
+  -m /mnt/m/LLM-Models/Qwen3.6-35B-A3B-UD-IQ3_S.gguf \
+  --alias "qwen3.6-35b" \
+  -c 163840 \
+  -ngl 999 \
+  --n-cpu-moe 2 \
+  --flash-attn on \
+  --cache-type-k q4_0 \
+  --cache-type-v q4_0 \
+  -b 1024 \
+  -ub 1024 \
+  -t 24 \
+  --jinja \
+  --no-mmap \
+  --host 0.0.0.0 \
+  --port 8080
+```
+
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
