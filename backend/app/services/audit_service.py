@@ -373,3 +373,172 @@ class AuditService:
             query = query.filter(AuditLog.action == action)
 
         return query.order_by(desc(AuditLog.timestamp)).all()
+
+    def get_audit_by_correlation_id(
+        self,
+        db: Session,
+        correlation_id: str,
+    ) -> list:
+        """Get audit logs by correlation ID.
+
+        Args:
+            db: SQLAlchemy database session.
+            correlation_id: Correlation ID to search for.
+
+        Returns:
+            List of AuditLog objects matching the correlation ID.
+        """
+        self._logger.info("get_audit_by_correlation_id called: correlation_id=%s", correlation_id)
+
+        logs = db.query(AuditLog).filter(
+            AuditLog.correlation_id == correlation_id,
+        ).order_by(desc(AuditLog.timestamp)).all()
+
+        self._logger.info("Found %d audit entries for correlation_id %s", len(logs), correlation_id)
+        return logs
+
+    def get_distinct_actions(
+        self,
+        db: Session,
+        resource_type: Optional[str] = None,
+    ) -> list:
+        """Get distinct actions from audit logs.
+
+        Args:
+            db: SQLAlchemy database session.
+            resource_type: Optional resource type filter.
+
+        Returns:
+            List of distinct action strings.
+        """
+        self._logger.info("get_distinct_actions called - resource_type=%s", resource_type)
+
+        query = db.query(AuditLog.action).distinct()
+        if resource_type:
+            query = query.filter(AuditLog.resource_type == resource_type)
+
+        actions = [row[0] for row in query.all()]
+        self._logger.info("Found %d distinct actions", len(actions))
+        return actions
+
+    def get_distinct_resource_types(self, db: Session) -> list:
+        """Get distinct resource types from audit logs.
+
+        Args:
+            db: SQLAlchemy database session.
+
+        Returns:
+            List of distinct resource type strings.
+        """
+        self._logger.info("get_distinct_resource_types called")
+
+        types = [row[0] for row in db.query(AuditLog.resource_type).distinct().all()]
+        self._logger.info("Found %d distinct resource types", len(types))
+        return types
+
+    def get_audit_stats(
+        self,
+        db: Session,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> dict:
+        """Get audit statistics.
+
+        Args:
+            db: SQLAlchemy database session.
+            start_date: Optional start date for filtering.
+            end_date: Optional end date for filtering.
+
+        Returns:
+            Dictionary containing audit statistics.
+        """
+        self._logger.info("get_audit_stats called - start_date=%s, end_date=%s", start_date, end_date)
+
+        query = db.query(AuditLog)
+
+        if start_date:
+            query = query.filter(AuditLog.timestamp >= start_date)
+        if end_date:
+            query = query.filter(AuditLog.timestamp <= end_date)
+
+        # Count by action
+        action_counts = {}
+        for row in db.query(AuditLog.action, db.func.count(AuditLog.id)).group_by(AuditLog.action).all():
+            action_counts[row[0]] = row[1]
+
+        # Count by resource type
+        resource_type_counts = {}
+        for row in db.query(AuditLog.resource_type, db.func.count(AuditLog.id)).group_by(AuditLog.resource_type).all():
+            resource_type_counts[row[0]] = row[1]
+
+        total = query.count()
+
+        result = {
+            "total": total,
+            "by_action": action_counts,
+            "by_resource_type": resource_type_counts,
+        }
+
+        self._logger.info("Audit stats calculated: total=%d", total)
+        return result
+
+    def search_audit_logs(
+        self,
+        db: Session,
+        query_str: str,
+        resource_type: Optional[str] = None,
+        action: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> dict:
+        """Search audit logs by content.
+
+        Args:
+            db: SQLAlchemy database session.
+            query_str: Search query string.
+            resource_type: Optional resource type filter.
+            action: Optional action filter.
+            start_date: Optional start date for filtering.
+            end_date: Optional end date for filtering.
+            page: Page number for pagination (1-based).
+            page_size: Number of items per page.
+
+        Returns:
+            Dictionary containing paginated search results.
+        """
+        self._logger.info("search_audit_logs called - query=%s", query_str)
+
+        # Use LIKE for text search
+        search_pattern = f"%{query_str}%"
+        filter_query = db.query(AuditLog).filter(
+            AuditLog.old_value.like(search_pattern) |
+            AuditLog.new_value.like(search_pattern) |
+            AuditLog.action.like(search_pattern) |
+            AuditLog.resource_type.like(search_pattern)
+        )
+
+        if resource_type:
+            filter_query = filter_query.filter(AuditLog.resource_type == resource_type)
+        if action:
+            filter_query = filter_query.filter(AuditLog.action == action)
+        if start_date:
+            filter_query = filter_query.filter(AuditLog.timestamp >= start_date)
+        if end_date:
+            filter_query = filter_query.filter(AuditLog.timestamp <= end_date)
+
+        total = filter_query.count()
+
+        items = filter_query.order_by(desc(AuditLog.timestamp)) \
+            .offset((page - 1) * page_size) \
+            .limit(page_size) \
+            .all()
+
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": (total + page_size - 1) // page_size if total > 0 else 0,
+        }

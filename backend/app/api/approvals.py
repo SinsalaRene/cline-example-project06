@@ -2,6 +2,7 @@
 API routes for Approval Workflow management.
 """
 
+import json
 from typing import Optional
 from uuid import UUID
 
@@ -27,9 +28,72 @@ from app.schemas.approval import (
 from app.models.approval import ApprovalRole
 from app.services.approval_service import ApprovalService
 from app.services.audit_service import AuditService
+import uuid
+from uuid import UUID as pyUUID
 from app.models.approval import ChangeType, ApprovalStatus
 
 router = APIRouter(prefix="/approvals", tags=["approvals"])
+
+
+def _convert_model(item):
+    """Convert a raw SQLAlchemy model instance to a JSON-compatible dict."""
+    if isinstance(item, dict):
+        return item
+    if hasattr(item, '__dict__') and not hasattr(item, '__table__'):
+        data = {k: v for k, v in item.__dict__.items() if not k.startswith('_sa_')}
+    elif hasattr(item, '__table__'):
+        data = {}
+        for col_name in item.__table__.columns.keys():
+            val = getattr(item, col_name, None)
+            if val is not None:
+                data[col_name] = val
+    else:
+        return item
+
+    # Parse JSON fields stored as strings
+    for field in ("rule_ids", "tags"):
+        val = data.get(field)
+        if isinstance(val, str):
+            try:
+                data[field] = json.loads(val)
+            except (json.JSONDecodeError, TypeError):
+                data[field] = None
+
+    # Normalize status field
+    if "status" in data and data["status"] is not None:
+        data["status"] = str(data["status"]).lower()
+
+    return data
+
+
+def _convert_paged(result_dict):
+    """Convert paginated results that may contain raw models."""
+    if not isinstance(result_dict, dict):
+        return result_dict
+    for key in ("items", "approvals", "data"):
+        if key in result_dict and isinstance(result_dict[key], list):
+            result_dict[key] = [_convert_model(i) for i in result_dict[key]]
+    # Also convert nested model dicts
+    if isinstance(result_dict, dict):
+        for k, v in result_dict.items():
+            if isinstance(v, list):
+                result_dict[k] = [_convert_model(i) for i in v]
+    return result_dict
+
+
+def _convert_result(result):
+    """Recursively convert SQLAlchemy models in a result dict."""
+    if isinstance(result, dict):
+        new_result = {}
+        for k, v in result.items():
+            if isinstance(v, list):
+                new_result[k] = [_convert_model(item) if hasattr(item, '__dict__') else item for item in v]
+            elif hasattr(v, '__dict__') and not hasattr(v, '__table__'):
+                new_result[k] = _convert_model(v)
+            else:
+                new_result[k] = v
+        return new_result
+    return result
 
 
 @router.get(
@@ -46,14 +110,15 @@ async def list_approvals(
     db: Session = Depends(get_db),
 ):
     """List approval requests with pagination."""
-    result = ApprovalService.get_approval_requests(
+    service = ApprovalService()
+    result = service.get_approval_requests(
         db=db,
         user_id=current_user.object_id,
         status=status_filter,
         page=page,
         page_size=page_size,
     )
-    return result
+    return _convert_paged(result)
 
 
 @router.get(
@@ -72,7 +137,7 @@ async def get_approval(
     approval = db.query(ApprovalRequest).filter(ApprovalRequest.id == approval_id).first()
     if not approval:
         raise HTTPException(status_code=404, detail="Approval request not found")
-    return approval
+    return _convert_model(approval)
 
 
 @router.post(
@@ -88,7 +153,8 @@ async def create_approval(
     db: Session = Depends(get_db),
 ):
     """Create a new approval request."""
-    new_approval = ApprovalService.create_approval_request(
+    service = ApprovalService()
+    new_approval = service.create_approval_request(
         db=db,
         rule_ids=approval.rule_ids,
         change_type=approval.change_type,
@@ -97,9 +163,9 @@ async def create_approval(
         workload_id=approval.workload_id,
         required_approvals=approval.required_approvals,
     )
-    
+
     # Log audit
-    AuditService.log_action(
+    AuditService().log_action(
         db=db,
         user_id=current_user.object_id,
         action="create_approval",
@@ -108,8 +174,8 @@ async def create_approval(
         new_value={"change_type": approval.change_type},
         correlation_id=None,
     )
-    
-    return new_approval
+
+    return _convert_model(new_approval)
 
 
 @router.post(
@@ -134,14 +200,15 @@ async def approve(
     if not step:
         raise HTTPException(status_code=404, detail="Approval step not found or already processed")
     
-    updated_step = ApprovalService.approve_step(
+    service = ApprovalService()
+    updated_step = service.approve_step(
         db=db,
         step_id=step.id,
         approver_id=current_user.object_id,
         comment=approval_data.comment,
     )
-    
-    return updated_step
+
+    return _convert_model(updated_step)
 
 
 @router.post(
@@ -166,15 +233,16 @@ async def reject(
     if not step:
         raise HTTPException(status_code=404, detail="Approval step not found or already processed")
     
-    updated_step = ApprovalService.reject_step(
+    service = ApprovalService()
+    updated_step = service.reject_step(
         db=db,
         step_id=step.id,
         approver_id=current_user.object_id,
         comment=rejection.comment,
     )
-    
+
     # Log audit
-    AuditService.log_action(
+    AuditService().log_action(
         db=db,
         user_id=current_user.object_id,
         action="reject",
@@ -182,8 +250,8 @@ async def reject(
         resource_id=str(approval_id),
         correlation_id=None,
     )
-    
-    return updated_step
+
+    return _convert_model(updated_step)
 
 
 @router.post(
@@ -205,7 +273,7 @@ async def add_comment(
         raise HTTPException(status_code=422, detail="Comment is required")
     
     approval_comment = ApprovalComment(
-        id=uuid4(),
+        id=uuid.uuid4(),
         approval_request_id=approval_id,
         user_id=current_user.object_id,
         comment=comment,
@@ -282,9 +350,9 @@ async def bulk_approve(
         comment=bulk_data.comment,
         required_approvals=bulk_data.required_approvals,
     )
-    
+
     # Log audit
-    AuditService.log_action(
+    AuditService().log_action(
         db=db,
         user_id=current_user.object_id,
         action="bulk_approve",
@@ -293,8 +361,8 @@ async def bulk_approve(
         new_value={"approved_count": len(result.get("approved_ids", []))},
         correlation_id=None,
     )
-    
-    return result
+
+    return _convert_result(result)
 
 
 @router.post(
@@ -316,9 +384,9 @@ async def bulk_reject(
         approver_id=current_user.object_id,
         comment=bulk_data.comment,
     )
-    
+
     # Log audit
-    AuditService.log_action(
+    AuditService().log_action(
         db=db,
         user_id=current_user.object_id,
         action="bulk_reject",
@@ -327,8 +395,8 @@ async def bulk_reject(
         new_value={"rejected_count": len(result.get("rejected_ids", []))},
         correlation_id=None,
     )
-    
-    return result
+
+    return _convert_result(result)
 
 
 @router.post(
@@ -352,8 +420,8 @@ async def escalate_approval(
         new_approver_role=escalation.target_role,
         reason=escalation.reason or "",
     )
-    
-    return result
+
+    return _convert_result(result)
 
 
 @router.post(
@@ -376,9 +444,9 @@ async def handle_timeouts(
         timeout_hours=timeout_hours,
         escalate_to_role=role,
     )
-    
+
     # Log audit
-    AuditService.log_action(
+    AuditService().log_action(
         db=db,
         user_id=current_user.object_id,
         action="handle_timeouts",
@@ -390,8 +458,8 @@ async def handle_timeouts(
         },
         correlation_id=None,
     )
-    
-    return result
+
+    return _convert_result(result)
 
 
 @router.get(

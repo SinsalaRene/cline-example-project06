@@ -3,7 +3,7 @@ Pydantic schemas for Firewall Rules.
 """
 
 from datetime import datetime
-from typing import Optional, list
+from typing import Optional
 from uuid import UUID
 from enum import Enum
 
@@ -12,7 +12,28 @@ from pydantic import BaseModel, Field
 
 class FirewallRuleAction(str, Enum):
     Allow = "Allow"
+    allow = "allow"
     Deny = "Deny"
+    deny = "deny"
+
+    @classmethod
+    def _missing_(cls, value):
+        if value is None:
+            return None
+        # Try direct match first
+        if hasattr(value, 'value'):
+            return value
+        value_stripped = str(value).strip()
+        # Try case-insensitive match
+        for member in cls:
+            if member.value.lower() == value_stripped.lower():
+                return member
+        # Try title case
+        value_title = value_stripped.title()
+        for member in cls:
+            if member.value == value_title:
+                return member
+        return None
 
 
 class FirewallProtocol(str, Enum):
@@ -22,6 +43,25 @@ class FirewallProtocol(str, Enum):
     Udp = "Udp"
     Icmp = "Icmp"
     Any = "Any"
+
+    @classmethod
+    def _missing_(cls, value):
+        if value is None:
+            return None
+        # Try direct match first
+        if hasattr(value, 'value'):
+            return value
+        value_stripped = str(value).strip()
+        # Try case-insensitive match
+        for member in cls:
+            if member.value.lower() == value_stripped.lower():
+                return member
+        # Try title case
+        value_title = value_stripped.title()
+        for member in cls:
+            if member.value == value_title:
+                return member
+        return None
 
 
 class FirewallRuleStatus(str, Enum):
@@ -45,7 +85,7 @@ class FirewallRuleCreate(BaseModel):
     destination_ports: Optional[list[int]] = None
     description: Optional[str] = None
     workload_id: Optional[UUID] = None
-    azure_resource_id: str
+    azure_resource_id: Optional[str] = None
 
 
 class FirewallRuleUpdate(BaseModel):

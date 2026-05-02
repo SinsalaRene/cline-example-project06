@@ -4,6 +4,9 @@ API routes for Audit log management.
 Provides endpoints for viewing, filtering, searching, and exporting audit logs.
 """
 
+import csv
+import io
+import json
 from typing import Optional
 from uuid import UUID
 
@@ -17,6 +20,83 @@ from app.services.audit_service import AuditService
 from datetime import datetime
 
 router = APIRouter(prefix="/audit", tags=["audit"])
+
+
+def _convert_model(item):
+    """Convert a raw SQLAlchemy model instance to a JSON-compatible dict."""
+    if isinstance(item, dict):
+        return item
+    if hasattr(item, '__dict__') and not hasattr(item, '__table__'):
+        data = {k: v for k, v in item.__dict__.items() if not k.startswith('_sa_')}
+    elif hasattr(item, '__table__'):
+        data = {}
+        for col_name in item.__table__.columns.keys():
+            val = getattr(item, col_name, None)
+            if val is not None:
+                data[col_name] = val
+    else:
+        return item
+
+    # Normalize fields
+    for field in ("severity",):
+        if field in data and data[field] is not None:
+            data[field] = str(data[field]).lower()
+    return data
+
+
+def _convert_audit_item(item):
+    """Convert an AuditLog SQLAlchemy model to a JSON-compatible dict."""
+    if isinstance(item, dict):
+        return item
+    data = {}
+    for col_name in item.__table__.columns.keys():
+        val = getattr(item, col_name, None)
+        data[col_name] = val
+    # Convert JSON string fields back to dicts
+    if data.get("old_value") and isinstance(data["old_value"], str):
+        try:
+            data["old_value"] = json.loads(data["old_value"])
+        except (json.JSONDecodeError, TypeError):
+            data["old_value"] = None
+    if data.get("new_value") and isinstance(data["new_value"], str):
+        try:
+            data["new_value"] = json.loads(data["new_value"])
+        except (json.JSONDecodeError, TypeError):
+            data["new_value"] = None
+    return data
+
+
+def _convert_paged(result_dict):
+    """Convert paginated results that may contain raw models."""
+    if not isinstance(result_dict, dict):
+        return result_dict
+    for key in ("items", "logs", "data"):
+        if key in result_dict and isinstance(result_dict[key], list):
+            converted = []
+            for i in result_dict[key]:
+                if hasattr(i, '__table__'):
+                    converted.append(_convert_audit_item(i))
+                elif isinstance(i, dict):
+                    converted.append(i)
+                else:
+                    converted.append(_convert_model(i))
+            result_dict[key] = converted
+    return result_dict
+
+
+def _convert_result(result):
+    """Convert SQLAlchemy models in a result dict."""
+    if isinstance(result, dict):
+        new_result = {}
+        for k, v in result.items():
+            if isinstance(v, list):
+                new_result[k] = [_convert_model(item) if hasattr(item, '__dict__') else item for item in v]
+            elif hasattr(v, '__dict__') and not hasattr(v, '__table__'):
+                new_result[k] = _convert_model(v)
+            else:
+                new_result[k] = v
+        return new_result
+    return result
 
 
 @router.get(
@@ -39,7 +119,8 @@ async def get_audit_logs(
     db: Session = Depends(get_db),
 ):
     """Get audit logs with pagination and comprehensive filtering."""
-    result = AuditService.get_audit_logs(
+    service = AuditService()
+    result = service.get_audit_logs(
         db=db,
         user_id=current_user.object_id,
         resource_type=resource_type,
@@ -49,7 +130,7 @@ async def get_audit_logs(
         page=page,
         page_size=page_size,
     )
-    return result
+    return _convert_paged(result)
 
 
 @router.get(
@@ -66,8 +147,10 @@ async def get_audit_for_resource(
     db: Session = Depends(get_db),
 ):
     """Get audit logs for a specific resource."""
-    logs = AuditService.get_audit_for_resource(db, resource_type, str(resource_id))
-    return {"resource_id": str(resource_id), "resource_type": resource_type, "audit_logs": logs, "total": len(logs)}
+    service = AuditService()
+    logs = service.get_audit_for_resource(db, resource_type, str(resource_id))
+    converted_logs = [_convert_model(log) for log in logs] if logs else []
+    return {"resource_id": str(resource_id), "resource_type": resource_type, "audit_logs": converted_logs, "total": len(converted_logs)}
 
 
 @router.get(
@@ -86,7 +169,8 @@ async def get_audit_for_user(
     db: Session = Depends(get_db),
 ):
     """Get audit logs filtered by user ID."""
-    result = AuditService.get_audit_logs(
+    service = AuditService()
+    result = service.get_audit_logs(
         db=db,
         user_id=user_id,
         action=action,
@@ -95,7 +179,7 @@ async def get_audit_for_user(
         page=page,
         page_size=page_size,
     )
-    return result
+    return _convert_paged(result)
 
 
 @router.get(
@@ -110,8 +194,9 @@ async def get_audit_stats(
     db: Session = Depends(get_db),
 ):
     """Get audit log statistics grouped by resource type, action, and user."""
-    stats = AuditService.get_audit_stats(db=db, start_date=start_date, end_date=end_date)
-    return stats
+    service = AuditService()
+    stats = service.get_audit_stats(db=db, start_date=start_date, end_date=end_date)
+    return _convert_result(stats)
 
 
 @router.get(
@@ -131,9 +216,10 @@ async def search_audit_logs(
     db: Session = Depends(get_db),
 ):
     """Search audit logs with full-text search."""
-    result = AuditService.search_audit_logs(
+    service = AuditService()
+    result = service.search_audit_logs(
         db=db,
-        query=q,
+        query_str=q,
         resource_type=resource_type,
         action=action,
         start_date=start_date,
@@ -141,7 +227,7 @@ async def search_audit_logs(
         page=page,
         page_size=page_size,
     )
-    return result
+    return _convert_paged(result)
 
 
 @router.get(
@@ -159,7 +245,8 @@ async def export_audit_logs(
     db: Session = Depends(get_db),
 ):
     """Export audit logs to CSV or JSON format."""
-    logs = AuditService.get_audit_logs(
+    service = AuditService()
+    logs = service.get_audit_logs(
         db=db,
         user_id=current_user.object_id,
         resource_type=resource_type,
@@ -174,23 +261,29 @@ async def export_audit_logs(
         # Return CSV format
         import csv
         import io
-        
+
         output = io.StringIO()
+        # Only export the audit log fields that are safe for CSV
+        csv_fields = ["id", "user_id", "action", "resource_type", "resource_id", "old_value", "new_value", "ip_address", "user_agent", "timestamp", "approval_request_id", "correlation_id"]
         if logs.get("items"):
-            writer = csv.DictWriter(output, fieldnames=["id", "user_id", "action", "resource_type", "resource_id", "old_value", "new_value", "ip_address", "user_agent", "timestamp"])
+            writer = csv.DictWriter(output, fieldnames=csv_fields, extrasaction='ignore')
             writer.writeheader()
             for item in logs["items"]:
-                row = {k: str(v) if v else "" for k, v in item.items()}
+                if hasattr(item, '__table__'):
+                    item_dict = _convert_audit_item(item)
+                else:
+                    item_dict = item if isinstance(item, dict) else dict(item)
+                row = {k: str(v) if v is not None else "" for k, v in item_dict.items() if k in csv_fields}
                 writer.writerow(row)
-        
+
         return Response(
             content=output.getvalue(),
             media_type="text/csv",
             headers={"Content-Disposition": 'attachment; filename="audit_export.csv"'}
         )
-    
+
     # Return JSON format
-    return {"export_format": "json", "total_records": logs.get("total", 0), "logs": logs}
+    return {"export_format": "json", "total_records": logs.get("total", 0), "logs": _convert_paged(logs)}
 
 
 @router.get(
@@ -207,7 +300,9 @@ async def export_audit_logs_csv(
     db: Session = Depends(get_db),
 ):
     """Export audit logs to CSV format."""
-    logs = AuditService.get_audit_logs(
+    import io
+    service = AuditService()
+    logs = service.get_audit_logs(
         db=db,
         user_id=current_user.object_id,
         resource_type=resource_type,
@@ -218,17 +313,18 @@ async def export_audit_logs_csv(
         page_size=10000,
     )
     
-    import csv
-    import io
-    
     output = io.StringIO()
     if logs.get("items"):
         writer = csv.DictWriter(output, fieldnames=["id", "user_id", "action", "resource_type", "resource_id", "old_value", "new_value", "ip_address", "user_agent", "timestamp"])
         writer.writeheader()
         for item in logs["items"]:
-            row = {k: str(v) if v else "" for k, v in item.items()}
+            if hasattr(item, '__table__'):
+                item_dict = _convert_audit_item(item)
+            else:
+                item_dict = item if isinstance(item, dict) else dict(item)
+            row = {k: str(v) if v else "" for k, v in item_dict.items()}
             writer.writerow(row)
-    
+
     return Response(
         content=output.getvalue(),
         media_type="text/csv",
@@ -247,8 +343,10 @@ async def get_audit_by_correlation(
     db: Session = Depends(get_db),
 ):
     """Get all audit entries for a correlation ID."""
-    logs = AuditService.get_audit_by_correlation_id(db, correlation_id)
-    return {"correlation_id": correlation_id, "audit_logs": logs, "total": len(logs)}
+    service = AuditService()
+    logs = service.get_audit_by_correlation_id(db, correlation_id)
+    converted_logs = [_convert_model(log) for log in logs] if logs else []
+    return {"correlation_id": correlation_id, "audit_logs": converted_logs, "total": len(converted_logs)}
 
 
 @router.get(
@@ -262,8 +360,9 @@ async def get_available_actions(
     db: Session = Depends(get_db),
 ):
     """Get list of distinct actions in audit logs."""
-    actions = AuditService.get_distinct_actions(db, resource_type=resource_type)
-    return {"actions": actions}
+    service = AuditService()
+    actions = service.get_distinct_actions(db, resource_type=resource_type)
+    return _convert_result({"actions": actions})
 
 
 @router.get(
@@ -276,5 +375,6 @@ async def get_available_resource_types(
     db: Session = Depends(get_db),
 ):
     """Get list of distinct resource types in audit logs."""
-    types = AuditService.get_distinct_resource_types(db)
-    return {"resource_types": types}
+    service = AuditService()
+    types = service.get_distinct_resource_types(db)
+    return _convert_result({"resource_types": types})

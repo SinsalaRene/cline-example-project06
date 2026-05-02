@@ -51,6 +51,14 @@ class ChangeType(str, PyEnum):
     Update = "update"
     Delete = "delete"
 
+    @classmethod
+    def _missing_(cls, value):
+        value_normalized = str(value).strip().lower() if value else value
+        for member in cls:
+            if member.value == value_normalized:
+                return member
+        return None
+
 
 class ApprovalStatus(str, PyEnum):
     """Status states for approval requests."""
@@ -60,11 +68,35 @@ class ApprovalStatus(str, PyEnum):
     Revoked = "revoked"
     Expired = "expired"
 
+    @classmethod
+    def _missing_(cls, value):
+        value_normalized = str(value).strip().lower() if value else value
+        for member in cls:
+            if member.value == value_normalized:
+                return member
+        return None
+
 
 class ApprovalRole(str, PyEnum):
     """Role types for approval workflow."""
     WorkloadStakeholder = "workload_stakeholder"
     SecurityStakeholder = "security_stakeholder"
+
+    @classmethod
+    def _missing_(cls, value):
+        if value is None:
+            return None
+        value = str(value).strip()
+        if not value:
+            return None
+        value_lower = value.lower()
+        for member in cls:
+            if member.value == value_lower:
+                return member
+            # Also try matching against the member name (e.g., "SecurityStakeholder" -> "SecurityStakeholder")
+            if member.name == value or member.name.lower() == value_lower:
+                return member
+        return None
 
 
 def _utc_now_server_default():

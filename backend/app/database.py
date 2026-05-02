@@ -110,14 +110,20 @@ def get_db_session() -> Generator[Session, None, None]:
         db.close()
 
 
-def get_db() -> Session:
+def get_db():
     """Get a database session.
+
+    Yields:
+        Session: SQLAlchemy database session
 
     Returns:
         Session: SQLAlchemy database session
     """
     db = SessionLocal()
-    return db
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def init_db():

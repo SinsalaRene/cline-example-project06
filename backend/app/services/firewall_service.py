@@ -136,12 +136,13 @@ class FirewallService:
         Raises:
             ValueError: If the rule is not found.
         """
+        from fastapi import HTTPException
         self._logger.info("get_firewall_rule called for rule_id %s", rule_id)
         rule = db.query(FirewallRule).filter(FirewallRule.id == rule_id).first()
         if not rule:
             msg = f"Firewall rule {rule_id} not found"
             self._logger.warning(msg)
-            raise ValueError(msg)
+            raise HTTPException(status_code=404, detail=msg)
         self._logger.debug("Retrieved firewall rule %s", rule_id)
         return rule
 
@@ -194,9 +195,13 @@ class FirewallService:
 
         if not rule_collection_name or not rule_collection_name.strip():
             raise ValueError("rule_collection_name is required")
-        if not action or action not in ("Allow", "Deny"):
+        # Normalize action to title case for consistency
+        normalized_action = action.strip().title() if action else action
+        if normalized_action not in ("Allow", "Deny"):
             raise ValueError("action must be 'Allow' or 'Deny'")
-        if not protocol or protocol not in ("Tcp", "Udp", "Any"):
+        # Normalize protocol to title case for consistency
+        normalized_protocol = protocol.strip().title() if protocol else protocol
+        if normalized_protocol not in ("Tcp", "Udp", "Any"):
             raise ValueError("protocol must be 'Tcp', 'Udp', or 'Any'")
         if priority < 100 or priority > 4096:
             raise ValueError("priority must be between 100 and 4096")
@@ -204,8 +209,8 @@ class FirewallService:
         rule = FirewallRule(
             rule_collection_name=rule_collection_name,
             priority=priority,
-            action=action,
-            protocol=protocol,
+            action=normalized_action,
+            protocol=normalized_protocol,
             source_addresses=json.dumps(source_addresses) if source_addresses else None,
             destination_fqdns=json.dumps(destination_fqdns) if destination_fqdns else None,
             source_ip_groups=json.dumps(source_ip_groups) if source_ip_groups else None,
@@ -379,11 +384,12 @@ class FirewallService:
         self._logger.info(
             "update_firewall_rule called for rule_id %s by user %s", rule_id, user_id
         )
+        from fastapi import HTTPException
         rule = db.query(FirewallRule).filter(FirewallRule.id == rule_id).first()
         if not rule:
             msg = f"Firewall rule {rule_id} not found"
             self._logger.warning(msg)
-            raise ValueError(msg)
+            raise HTTPException(status_code=404, detail=msg)
 
         updatable_fields = {
             "rule_collection_name",
@@ -446,12 +452,13 @@ class FirewallService:
         Raises:
             ValueError: If the rule is not found.
         """
+        from fastapi import HTTPException
         self._logger.info("delete_firewall_rule called for rule_id %s", rule_id)
         rule = db.query(FirewallRule).filter(FirewallRule.id == rule_id).first()
         if not rule:
             msg = f"Firewall rule {rule_id} not found"
             self._logger.warning(msg)
-            raise ValueError(msg)
+            raise HTTPException(status_code=404, detail=msg)
 
         try:
             db.delete(rule)
@@ -1139,12 +1146,13 @@ class WorkloadService:
         Raises:
             ValueError: If the workload is not found.
         """
+        from fastapi import HTTPException
         self._logger.info("get_workload called for workload_id %s", workload_id)
         workload = db.query(Workload).filter(Workload.id == workload_id).first()
         if not workload:
             msg = f"Workload {workload_id} not found"
             self._logger.warning(msg)
-            raise ValueError(msg)
+            raise HTTPException(status_code=404, detail=msg)
         self._logger.debug("Retrieved workload %s", workload_id)
         return workload
 

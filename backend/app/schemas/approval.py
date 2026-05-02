@@ -3,7 +3,7 @@ Pydantic schemas for Approval Workflows.
 """
 
 from datetime import datetime
-from typing import Optional, list
+from typing import Optional
 from uuid import UUID
 from enum import Enum
 
@@ -15,6 +15,14 @@ class ChangeType(str, Enum):
     Update = "update"
     Delete = "delete"
 
+    @classmethod
+    def _missing_(cls, value):
+        value_normalized = str(value).strip().lower() if value else value
+        for member in cls:
+            if member.value == value_normalized:
+                return member
+        return None
+
 
 class ApprovalStatus(str, Enum):
     Pending = "pending"
@@ -23,10 +31,33 @@ class ApprovalStatus(str, Enum):
     Revoked = "revoked"
     Expired = "expired"
 
+    @classmethod
+    def _missing_(cls, value):
+        value_normalized = str(value).strip().lower() if value else value
+        for member in cls:
+            if member.value == value_normalized:
+                return member
+        return None
+
 
 class ApprovalRole(str, Enum):
     WorkloadStakeholder = "workload_stakeholder"
     SecurityStakeholder = "security_stakeholder"
+
+    @classmethod
+    def _missing_(cls, value):
+        if value is None:
+            return None
+        value = str(value).strip()
+        if not value:
+            return None
+        value_lower = value.lower()
+        for member in cls:
+            if member.value == value_lower:
+                return member
+            if member.name == value or member.name.lower() == value_lower:
+                return member
+        return None
 
 
 # --- Request Schemas ---
