@@ -69,7 +69,6 @@ from prometheus_client import (
     Gauge,
     generate_latest,
     CONTENT_TYPE_LATEST,
-    MetricsCollectors,
 )
 from sqlalchemy.orm import Session
 

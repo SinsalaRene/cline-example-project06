@@ -7,10 +7,30 @@ import { AuthService } from '../../core/services/auth.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { ErrorHandlerService } from '../../core/services/error-handler.service';
 
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { MatIconModule } from '@angular/material/icon';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatButtonModule } from '@angular/material/button';
+import { ErrorNotificationComponent } from '../../shared/components/error-notification/error-notification.component';
+
 @Component({
     selector: 'app-layout',
     templateUrl: './layout.component.html',
-    styleUrls: ['./layout.component.css']
+    styleUrls: ['./layout.component.css'],
+    imports: [
+        CommonModule,
+        RouterModule,
+        MatIconModule,
+        MatDividerModule,
+        MatSidenavModule,
+        MatMenuModule,
+        MatButtonModule,
+        ErrorNotificationComponent
+    ],
+    standalone: true
 })
 export class LayoutComponent implements OnInit, OnDestroy {
     private destroy$ = new Subject<void>();
@@ -125,7 +145,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
             return child.routeConfig.path
                 .split('/')
                 .filter(Boolean)
-                .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+                .map((p: string) => p.charAt(0).toUpperCase() + p.slice(1))
                 .join(' ');
         }
 

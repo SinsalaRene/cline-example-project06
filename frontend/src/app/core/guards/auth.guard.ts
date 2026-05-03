@@ -92,7 +92,7 @@ export class RoleGuard implements CanActivate {
             return this.router.createUrlTree(['/login']);
         }
 
-        const userRoles = this.authService.userSubject.value?.roles ?? [];
+        const userRoles = this.authService.hasRole('admin') ? ['admin'] : [];
         const hasRole = requiredRoles.some(role => userRoles.includes(role));
 
         if (!hasRole) {

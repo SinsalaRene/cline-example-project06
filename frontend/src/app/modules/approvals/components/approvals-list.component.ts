@@ -200,9 +200,7 @@ import { ConfirmationDialogComponent } from '../../rules/components/confirmation
                     <ng-container matColumnDef="request_type">
                         <th mat-header-cell *matHeaderCellDef mat-sort-header>Type</th>
                         <td mat-cell *matCellDef="let item">
-                            <mat-chip-single [type]="item.request_type">
-                                {{ item.request_type }}
-                            </mat-chip-single>
+                            <mat-chip color="primary">{{ item.request_type }}</mat-chip>
                         </td>
                     </ng-container>
 
@@ -570,7 +568,7 @@ export class ApprovalsListComponent implements OnInit {
 
     // Bulk operations
     bulkApproveSelected(): void {
-        const ids = Array.from(this.selectedRows.map(i => i.id));
+        const ids: string[] = Array.from(this.selectedRows).map((item: ApprovalRequest, i: number) => item.id);
         const count = ids.length;
         const dialogRef = this.dialog.open(BulkActionDialogComponent, {
             width: '500px',
@@ -584,7 +582,7 @@ export class ApprovalsListComponent implements OnInit {
         });
         dialogRef.afterClosed().subscribe(result => {
             if (result?.confirmed) {
-                this.approvalsService.bulkApprove(ids, result.reason || undefined).subscribe({
+                this.approvalsService.bulkApprove(ids as string[], result.reason || undefined).subscribe({
                     next: (res) => {
                         this.snackBar.open(`Approved ${res.success} request(s).`, 'Close', { duration: 3000 });
                         this.selectedRows.clear();
@@ -597,7 +595,7 @@ export class ApprovalsListComponent implements OnInit {
     }
 
     bulkRejectSelected(): void {
-        const ids = Array.from(this.selectedRows.map(i => i.id));
+        const ids: string[] = Array.from(this.selectedRows).map((item: ApprovalRequest, i: number) => item.id);
         const count = ids.length;
         const dialogRef = this.dialog.open(BulkActionDialogComponent, {
             width: '500px',
@@ -611,7 +609,7 @@ export class ApprovalsListComponent implements OnInit {
         });
         dialogRef.afterClosed().subscribe(result => {
             if (result?.confirmed) {
-                this.approvalsService.bulkReject(ids, result.reason || 'No reason provided').subscribe({
+                this.approvalsService.bulkReject(ids as string[], result.reason || 'No reason provided').subscribe({
                     next: (res) => {
                         this.snackBar.open(`Rejected ${res.success} request(s).`, 'Close', { duration: 3000 });
                         this.selectedRows.clear();

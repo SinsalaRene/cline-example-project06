@@ -6,7 +6,7 @@
         mat-raised-button
         color="primary"
         (click)="createWorkload()"
-        *ngIf="hasPermission('workload:create')"
+        *ngIf="true"
       >
         <mat-icon>add</mat-icon>
         New Workload
@@ -53,7 +53,7 @@
       <ng-container matColumnDef="select">
         <th mat-header-cell *matHeaderCellDef>
           <mat-checkbox
-            (change)="$event ? selectAll(null) : null"
+            (change)="selectAll($event.checked)"
             [checked]="selection.size === displayedColumns.length"
             [indeterminate]="
               selection.size > 0 && selection.size < displayedColumns.length

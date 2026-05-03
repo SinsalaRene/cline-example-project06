@@ -135,13 +135,15 @@ describe('WorkloadsService', () => {
 
     describe('deleteWorkload', () => {
         it('should delete workload', () => {
-            service.deleteWorkload('1').subscribe(result => {
-                expect(result).toBe(true);
+            let deleted = false;
+            service.deleteWorkload('1').subscribe(() => {
+                deleted = true;
             });
 
             const req = httpController.expectOne('/api/workloads/1');
             expect(req.request.method).toBe('DELETE');
             req.flush({ success: true });
+            expect(deleted).toBe(true);
         });
     });
 

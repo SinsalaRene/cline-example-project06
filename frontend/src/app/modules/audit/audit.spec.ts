@@ -1,36 +1,21 @@
 /**
  * Audit Module Tests
- *
- * Comprehensive tests for the Audit module covering:
- * - Audit model type definitions
- * - AuditService methods and functionality
- * - AuditViewerComponent rendering and interactions
- * - AuditDetailComponent display and functionality
- * - Filter and export functionality
- *
- * # Test Coverage
- *
- * - Model: Type validation for all audit interfaces
- * - Service: CRUD operations, filtering, export, formatting
- * - Component: Rendering, user interactions, form validation
- * - Integration: End-to-end audit viewing workflow
  */
 
 import { ComponentFixture, TestBed, fakeAsync, tick, flush } from '@angular/core/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
-import { ComponentFixtureTestingModule, TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http/testing';
+import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { ReactiveFormsModule, FormsModule, FormBuilder } from '@angular/forms';
 import { provideAnimations } from '@angular/platform-browser/animations';
-import { getTestBed } from '@angular/core/testing';
 import {
-    BrowserTestingModule,
-    browserPersistentSessionStorage,
-    browserStateContextProvider,
-    browserTransferStateContextProvider
-} from '@angular/platform-browser/testing';
-import { AuditEntry, AuditFilter, AuditAction, AuditResourceType, AuditSeverity, AuditSummary } from './models/audit.model';
+    AuditEntry,
+    AuditFilter,
+    AuditAction,
+    AuditResourceType,
+    AuditSeverity,
+    AuditSummary
+} from './models/audit.model';
 import { AuditService } from './services/audit.service';
 import { AuditViewerComponent } from './components/audit-viewer.component';
 import { AuditDetailComponent } from './components/audit-detail.component';
@@ -38,6 +23,11 @@ import { of, throwError, lastValueFrom } from 'rxjs';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+
+// Helper values since AuditAction/AuditResourceType/AuditSeverity are type aliases, not enums
+const AUDIT_ACTIONS: AuditAction[] = ['CREATE', 'UPDATE', 'DELETE', 'READ', 'LOGIN', 'LOGOUT', 'APPROVE', 'REJECT', 'IMPORT', 'EXPORT', 'CONFIGURE', 'DEPLOY', 'TEST', 'EXECUTE'];
+const AUDIT_RESOURCE_TYPES: AuditResourceType[] = ['FIREWALL_RULE', 'ACCESS_RULE', 'THRESHOLD', 'WORKSPACE', 'USER', 'CONFIGURATION', 'DEPLOYMENT', 'APPROVAL', 'RULE_EVALUATION', 'BATCH_OPERATION', 'WEBHOOK', 'NOTIFICATION'];
+const AUDIT_SEVERITIES: AuditSeverity[] = ['info', 'warning', 'error', 'success'];
 
 // ============================================================
 // Audit Model Tests
@@ -54,11 +44,11 @@ describe('Audit Models', () => {
                 ipAddress: '192.168.1.100',
                 httpMethod: 'POST',
                 path: '/api/v1/firewall/rules',
-                action: AuditAction.CREATE,
-                resourceType: AuditResourceType.FIREWALL_RULE,
+                action: 'CREATE',
+                resourceType: 'FIREWALL_RULE',
                 resourceId: 'fw-rule-123',
                 description: 'Created new firewall rule',
-                severity: AuditSeverity.INFO,
+                severity: 'info',
                 success: true,
                 details: {
                     requestBody: { name: 'Allow SSH' }
@@ -77,33 +67,19 @@ describe('Audit Models', () => {
         });
 
         it('should validate AuditAction enum values', () => {
-            const validActions: AuditAction[] = [
-                'CREATE', 'UPDATE', 'DELETE', 'READ', 'LOGIN',
-                'LOGOUT', 'APPROVE', 'REJECT', 'IMPORT', 'EXPORT',
-                'CONFIGURE', 'DEPLOY', 'TEST', 'EXECUTE'
-            ];
-
-            validActions.forEach(action => {
+            AUDIT_ACTIONS.forEach(action => {
                 expect(action).toBeDefined();
             });
         });
 
         it('should validate AuditResourceType enum values', () => {
-            const validTypes: AuditResourceType[] = [
-                'FIREWALL_RULE', 'ACCESS_RULE', 'THRESHOLD', 'WORKSPACE',
-                'USER', 'CONFIGURATION', 'DEPLOYMENT', 'APPROVAL',
-                'RULE_EVALUATION', 'BATCH_OPERATION', 'WEBHOOK', 'NOTIFICATION'
-            ];
-
-            validTypes.forEach(type => {
+            AUDIT_RESOURCE_TYPES.forEach(type => {
                 expect(type).toBeDefined();
             });
         });
 
         it('should validate AuditSeverity enum values', () => {
-            const validSeverities: AuditSeverity[] = ['info', 'warning', 'error', 'success'];
-
-            validSeverities.forEach(severity => {
+            AUDIT_SEVERITIES.forEach(severity => {
                 expect(severity).toBeDefined();
             });
         });
@@ -127,9 +103,9 @@ describe('Audit Models', () => {
                 searchQuery: 'firewall',
                 dateFrom: '2024-01-01T00:00:00Z',
                 dateTo: '2024-01-31T23:59:59Z',
-                actionFilter: [AuditAction.CREATE, AuditAction.DELETE],
-                resourceTypeFilter: [AuditResourceType.FIREWALL_RULE],
-                severityFilter: [AuditSeverity.ERROR, AuditSeverity.WARNING],
+                actionFilter: ['CREATE', 'DELETE'],
+                resourceTypeFilter: ['FIREWALL_RULE'],
+                severityFilter: ['error', 'warning'],
                 userFilter: ['admin@example.com'],
                 successFilter: false,
                 page: 1,
@@ -562,7 +538,7 @@ describe('AuditService', () => {
         it('should identify recent entries', () => {
             const recentEntry: AuditEntry = {
                 id: '1',
-                timestamp: new Date(Date.now() - 1800000).toISOString(), // 30 minutes ago
+                timestamp: new Date(Date.now() - 1800000).toISOString(),
                 user: 'test@example.com',
                 action: 'CREATE',
                 resourceType: 'FIREWALL_RULE',
@@ -573,7 +549,7 @@ describe('AuditService', () => {
 
             const oldEntry: AuditEntry = {
                 id: '2',
-                timestamp: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
+                timestamp: new Date(Date.now() - 7200000).toISOString(),
                 user: 'test@example.com',
                 action: 'UPDATE',
                 resourceType: 'FIREWALL_RULE',
@@ -602,7 +578,6 @@ describe('AuditViewerComponent', () => {
                 AuditViewerComponent,
                 HttpClientTestingModule,
                 ReactiveFormsModule,
-                BrowserTestingModule
             ],
             providers: [
                 AuditService,
@@ -638,7 +613,6 @@ describe('AuditViewerComponent', () => {
     });
 
     it('should load audit logs on init', () => {
-        // In a real test, we would mock the service call
         expect(component.loadAuditLogs).toBeDefined();
     });
 
@@ -680,12 +654,11 @@ describe('AuditDetailComponent', () => {
                 AuditDetailComponent,
                 HttpClientTestingModule,
                 ReactiveFormsModule,
-                BrowserTestingModule
             ],
             providers: [
                 AuditService,
                 { provide: MatDialogRef, useValue: { close: () => { } } },
-                { provide: MAT_DIALOG_DATA, useValue: {} },
+                { provide: MatDialog, useValue: { open: () => ({ afterClosed: () => of(true) }) } },
                 { provide: MatSnackBar, useValue: { open: () => ({ afterClosed: () => of(true) }) } },
                 provideHttpClient(),
                 provideAnimations()
@@ -784,7 +757,6 @@ describe('AuditFilter Functionality', () => {
             }
         ];
 
-        // Filter for entries in January 2024
         const filtered = service.filterAuditEntries(entries, {
             dateFrom: '2024-01-15T00:00:00Z',
             dateTo: '2024-01-31T23:59:59Z'

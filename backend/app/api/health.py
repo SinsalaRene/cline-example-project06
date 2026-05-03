@@ -43,6 +43,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -262,7 +263,7 @@ async def readiness_probe(db: Session = Depends(get_db)):
     components: Dict[str, str] = {}
     try:
         # Test database connection with a simple query
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         components["database"] = "healthy"
         status_value = "ready"
     except Exception as e:

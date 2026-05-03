@@ -1,6 +1,6 @@
-import { TestBed, fakeAsync, tick, flushMicroTasks } from '@angular/core/testing';
-import { HttpRequest, HttpHandler, HttpEvent, HttpResponse, HTTP_INTERCEPTORS } from '@angular/common/http';
-import { HttpErrorResponse, HttpClientTestingModule } from '@angular/common/http/testing';
+import { TestBed, fakeAsync, tick, flushMicrotasks } from '@angular/core/testing';
+import { HttpRequest, HttpHandler, HttpEvent, HttpResponse, HTTP_INTERCEPTORS, HttpErrorResponse } from '@angular/common/http';
+import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { Observable, throwError, of } from 'rxjs';
 import { Router } from '@angular/router';
 import { HttpErrorInterceptor, HttpErrorInterceptorFactory } from './http-error.interceptor';
@@ -8,12 +8,12 @@ import { ErrorHandlerService } from '../services/error-handler.service';
 
 describe('HttpErrorInterceptor', () => {
     let interceptor: HttpErrorInterceptor;
-    let errorHandler: jasmine.SpyObj<ErrorHandlerService>;
-    let router: jasmine.SpyObj<Router>;
+    let errorHandler: jest.Mocked<ErrorHandlerService>;
+    let router: jest.Mocked<Router>;
 
     beforeEach(() => {
-        const errorHandlerSpy = jasmine.createSpyObj('ErrorHandlerService', ['handleHttpError', 'handleAuthError']);
-        const routerSpy = jasmine.createSpyObj('Router', ['navigate']);
+        const errorHandlerSpy = { handleHttpError: jest.fn(), handleAuthError: jest.fn() };
+        const routerSpy = { navigate: jest.fn() };
 
         TestBed.configureTestingModule({
             providers: [
@@ -24,8 +24,8 @@ describe('HttpErrorInterceptor', () => {
         });
 
         interceptor = TestBed.inject(HttpErrorInterceptor);
-        errorHandler = TestBed.inject(ErrorHandlerService) as jasmine.SpyObj<ErrorHandlerService>;
-        router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
+        errorHandler = TestBed.inject(ErrorHandlerService) as jest.Mocked<ErrorHandlerService>;
+        router = TestBed.inject(Router) as jest.Mocked<Router>;
     });
 
     it('should be created', () => {
@@ -239,7 +239,7 @@ describe('HttpErrorInterceptor', () => {
                 error: { message: 'Cannot connect' },
                 statusText: 'Unknown'
             });
-            mockError.url = 'http://localhost/api';
+            Object.defineProperty(mockError, 'url', { value: 'http://localhost/api', writable: true, configurable: true });;
 
             const errorObservable = throwError(() => mockError);
 
@@ -282,7 +282,7 @@ describe('HttpErrorInterceptor', () => {
             interceptor.intercept(mockRequest, { handle: () => errorObservable }).subscribe({
                 error: () => {
                     expect(errorHandler.handleHttpError).toHaveBeenCalled();
-                    const callArgs = errorHandler.handleHttpError.calls.first().args[0];
+                    const callArgs = errorHandler.handleHttpError.mock.calls[0][0];
                     expect(callArgs.message).toContain('Internal Server Error');
                     expect(callArgs.statusCode).toBe(500);
                     expect(callArgs.url).toBe('/api/test');

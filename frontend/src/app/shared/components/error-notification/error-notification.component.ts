@@ -1,5 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { MatSnackBar, MatSnackBarConfig } from '@angular/material/snack-bar';
+import { CommonModule } from '@angular/common';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
 import { ErrorHandlerService, AppError } from '../../../core/services/error-handler.service';
 import { Subscription } from 'rxjs';
 
@@ -7,22 +9,23 @@ import { Subscription } from 'rxjs';
  * ErrorNotification Component
  *
  * Global error notification component that listens to the ErrorHandlerService
- * and displays user-friendly error messages via Angular Material snackbar.
+ * and displays user-friendly error messages.
  *
  * This component is designed to be placed once in the application root layout
  * to catch and display errors from anywhere in the application.
  */
 @Component({
     selector: 'app-error-notification',
+    standalone: true,
+    imports: [CommonModule, MatIconModule, MatButtonModule],
     template: `
-    <!-- Snackbar for displaying error messages -->
-    <mat-snack-bar
+    <div
       *ngIf="currentError"
-      [class]="getErrorClass()"
-      [panelClass]="getPanelClass()"
+      class="error-notification"
+      [class]="'error-severity-' + getErrorClass()"
     >
       <div class="error-notification-content">
-        <mat-icon class="error-icon">{{ getErrorIcon() }}</mat-icon>
+        <span class="error-icon">{{ getErrorIcon() }}</span>
         <div class="error-text">
           <span class="error-title">{{ errorTitle }}</span>
           <span class="error-message">{{ currentError?.message }}</span>
@@ -31,7 +34,7 @@ import { Subscription } from 'rxjs';
       <button mat-button class="error-action" (click)="dismissError()">
         {{ actionLabel }}
       </button>
-    </mat-snack-bar>
+    </div>
   `,
     styles: [`
     :host {
@@ -42,21 +45,25 @@ import { Subscription } from 'rxjs';
       display: block;
     }
 
-    mat-snack-bar {
+    .error-notification {
       min-width: 320px;
       max-width: 480px;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       padding: 16px 20px;
-      background: var(--error-bg, #ffebee);
-      color: var(--error-text, #c62828);
-      border-left: 4px solid var(--error-text, #c62828);
+      background: #ffebee;
+      color: #c62828;
+      border-left: 4px solid #c62828;
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
     .error-notification-content {
       display: flex;
-      align-items: flex-start;
-      gap: 12px;
+      align-items: center;
+      flex: 1;
+      gap: 8px;
     }
 
     .error-icon {
@@ -64,7 +71,6 @@ import { Subscription } from 'rxjs';
       width: 20px;
       height: 20px;
       flex-shrink: 0;
-      margin-top: 2px;
     }
 
     .error-text {
@@ -76,7 +82,7 @@ import { Subscription } from 'rxjs';
       display: block;
       font-weight: 600;
       font-size: 14px;
-      margin-bottom: 4px;
+      margin-bottom: 0;
     }
 
     .error-message {
@@ -88,7 +94,7 @@ import { Subscription } from 'rxjs';
     }
 
     .error-action {
-      margin-left: 16px;
+      margin-left: 8px;
       font-weight: 600;
       text-transform: none;
       letter-spacing: normal;
@@ -116,21 +122,6 @@ import { Subscription } from 'rxjs';
       background: #e8f5e9;
       color: #1b5e20;
     }
-
-    /* Success variant */
-    .success-icon {
-      color: #2e7d32;
-    }
-
-    /* Warning variant */
-    .warning-icon {
-      color: #e65100;
-    }
-
-    /* Info variant */
-    .info-icon {
-      color: #1976d2;
-    }
   `]
 })
 export class ErrorNotificationComponent implements OnInit, OnDestroy {
@@ -156,13 +147,12 @@ export class ErrorNotificationComponent implements OnInit, OnDestroy {
     private autoDismissTimer?: ReturnType<typeof setTimeout>;
 
     constructor(
-        private errorHandler: ErrorHandlerService,
-        private snackBar: MatSnackBar
+        private errorHandler: ErrorHandlerService
     ) { }
 
     ngOnInit(): void {
         // Subscribe to HTTP errors
-        this.errorSubscription = this.errorHandler.error$.subscribe((error) => {
+        this.errorSubscription = this.errorHandler.error$.subscribe((error: AppError) => {
             this.displayError(error);
         });
 
@@ -224,22 +214,22 @@ export class ErrorNotificationComponent implements OnInit, OnDestroy {
         const statusCode = this.currentError?.statusCode;
 
         if (statusCode === 401 || statusCode === 403) {
-            return 'lock';
+            return '\u{1F512}'; // Lock emoji
         }
 
         if (statusCode === 404) {
-            return 'search_off';
+            return '\u{1F50D}'; // Search off emoji
         }
 
         if (statusCode && statusCode >= 500) {
-            return 'server_error';
+            return '\u{1F5A5}'; // Server error emoji
         }
 
         if (statusCode === 429) {
-            return 'hourglass_empty';
+            return '\u{23F3}'; // Hourglass emoji
         }
 
-        return 'error';
+        return '\u2715'; // Error emoji
     }
 
     /**
@@ -309,13 +299,6 @@ export class ErrorNotificationComponent implements OnInit, OnDestroy {
         }
 
         return 'error-severity-error';
-    }
-
-    /**
-     * Get panel class for styling.
-     */
-    getPanelClass(): string {
-        return `error-notification-panel`;
     }
 
     /**

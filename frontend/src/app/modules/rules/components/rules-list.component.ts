@@ -167,9 +167,9 @@ export interface RuleListFilter {
           <ng-container matColumnDef="action">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Action</th>
             <td mat-cell *matCellDef="let rule">
-              <mat-chip-single [rule]="rule">
+              <mat-chip [color]="rule.action === 'Allow' ? 'accent' : 'warn'" class="action-chip">
                 {{ rule.action }}
-              </mat-chip-single>
+              </mat-chip>
             </td>
           </ng-container>
 
@@ -439,11 +439,12 @@ export interface RuleListFilter {
     MatPaginatorModule,
     MatChipsModule,
     MatTableModule,
-    MatPaginatorModule,
     MatSortModule,
     MatProgressSpinnerModule,
     MatSelectModule,
-    MatCheckboxModule
+    MatCheckboxModule,
+    CommonModule,
+    ReactiveFormsModule
   ],
   standalone: true
 })
@@ -466,7 +467,7 @@ export class RulesListComponent implements OnInit {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
 
-  private allRules: FirewallRule[] = [];
+  protected allRules: FirewallRule[] = [];
 
   constructor(
     private rulesService: RulesService,
@@ -560,7 +561,7 @@ export class RulesListComponent implements OnInit {
       workloadFilter: ''
     };
     this.dataSource.filter = '';
-    this.dataSource.filteredData = this.allRules;
+    this.dataSource.filteredData = this.allRules ?? [];
   }
 
   toggleFilters(): void {
@@ -716,7 +717,7 @@ export class RulesListComponent implements OnInit {
     input.type = 'file';
     input.accept = '.json,.csv';
 
-    input.change = (event: Event) => {
+    input.onchange = (event: Event) => {
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
 

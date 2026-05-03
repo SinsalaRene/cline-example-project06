@@ -4,21 +4,20 @@ import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { SharedModule } from '../../shared/shared.module';
 import { LoginComponent } from './login/login.component';
-import { LogoutComponent } from './logout/logout.component';
 import { RoleDirective } from './directives/role.directive';
+import { LogoutComponent } from './logout/logout.component';
 
 @NgModule({
-    declarations: [
-        LoginComponent,
-        LogoutComponent,
-        RoleDirective,
-    ],
+    declarations: [],
     imports: [
         CommonModule,
         SharedModule,
         ReactiveFormsModule,
         FormsModule,
         RouterModule,
+        LoginComponent,
+        LogoutComponent,
+        RoleDirective,
     ],
     exports: [
         LoginComponent,

@@ -5,11 +5,27 @@ Uses environment variables with validation and sensible defaults.
 Supports both SQLite (development) and PostgreSQL (production) databases.
 """
 
-from typing import Optional, List
+from typing import Optional, List, Union
 from enum import Enum as PyEnum
 from functools import lru_cache
-from pydantic import field_validator, model_validator
+from pydantic import field_validator, model_validator, BeforeValidator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def allowed_hosts_preprocessor(v: Union[str, List[str], None]) -> List[str]:
+    """Pre-process allowed_hosts from env var to List[str].
+    
+    Handles both string values like '*' and list values like ['*', 'localhost'].
+    """
+    if v is None or v == "":
+        return ["*"]
+    if isinstance(v, str):
+        # Try to parse as comma-separated list first
+        if "," in v:
+            return [x.strip() for x in v.split(",") if x.strip()]
+        # Single value
+        return [v]
+    return v if v else ["*"]
 
 
 class DatabaseType(str, PyEnum):
@@ -52,6 +68,22 @@ class Settings(BaseSettings):
     allowed_hosts: List[str] = ["*"]
     api_prefix: str = "/api"
 
+    @field_validator("allowed_hosts", mode="before")
+    @classmethod
+    def validate_allowed_hosts(cls, v: Union[str, List[str], None]) -> List[str]:
+        """Validate allowed_hosts and handle string values from env vars."""
+        return allowed_hosts_preprocessor(v)
+
+    def model_post_init(self, __context):
+        """Post-init hook to handle allowed_hosts if it wasn't set."""
+        if not self.allowed_hosts or self.allowed_hosts == ["*"]:
+            # Only set default if it wasn't explicitly set from env
+            if not hasattr(self, '_allowed_hosts_from_env'):
+                object.__setattr__(self, 'allowed_hosts', ["*"])
+
+    # Azure Mock Mode (local development)
+    azure_mock_mode: bool = True  # Default to True so local dev works without Azure
+    
     # Azure Service Bus (optional)
     service_bus_connection_string: Optional[str] = None
     approval_queue_name: str = "approval-requests"
@@ -73,7 +105,7 @@ class Settings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=None,
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -144,6 +176,11 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Return True if running in development mode."""
         return self.database_type == "sqlite" or self.debug is True
+
+    @property
+    def is_azure_mock_mode(self) -> bool:
+        """Return True if Azure operations should be mocked."""
+        return self.azure_mock_mode is True
 
     def get_database_dsn(self, include_password: bool = True) -> str:
         """Get a sanitized database DSN for display/logging.

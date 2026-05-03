@@ -4,10 +4,10 @@ import { Router } from '@angular/router';
 
 describe('ErrorHandlerService', () => {
     let service: ErrorHandlerService;
-    let router: jasmine.SpyObj<Router>;
+    let router: jest.Mocked<Router>;
 
     beforeEach(() => {
-        const routerSpy = jasmine.createSpyObj('Router', ['navigate']);
+        const routerSpy = { navigate: jest.fn(), url: '' };
 
         TestBed.configureTestingModule({
             providers: [
@@ -17,7 +17,7 @@ describe('ErrorHandlerService', () => {
         });
 
         service = TestBed.inject(ErrorHandlerService);
-        router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
+        router = TestBed.inject(Router) as jest.Mocked<Router>;
     });
 
     it('should be created', () => {
@@ -33,9 +33,15 @@ describe('ErrorHandlerService', () => {
                 method: 'GET'
             };
 
-            const result = service.handleHttpError(error);
-            expect(result.message).toBe('Internal Server Error');
-            expect(result.statusCode).toBe(500);
+            // Subscribe to capture the emitted error
+            let emittedError: any;
+            service.error$.subscribe((e: any) => emittedError = e);
+
+            service.handleHttpError(error);
+
+            expect(emittedError).toBeDefined();
+            expect(emittedError.message).toBe('Internal Server Error');
+            expect(emittedError.statusCode).toBe(500);
         });
 
         it('should return user-friendly error messages', () => {
@@ -46,8 +52,13 @@ describe('ErrorHandlerService', () => {
                 method: 'GET'
             };
 
-            const result = service.handleHttpError(error);
-            expect(result.message).toContain('Unable to connect');
+            let emittedError: any;
+            service.error$.subscribe((e: any) => emittedError = e);
+
+            service.handleHttpError(error);
+
+            expect(emittedError).toBeDefined();
+            expect(emittedError.message).toContain('Unable to connect');
         });
 
         it('should handle network errors gracefully', () => {
@@ -58,36 +69,84 @@ describe('ErrorHandlerService', () => {
                 method: 'GET'
             };
 
-            const result = service.handleHttpError(error);
-            expect(result.message).toBeDefined();
+            let emittedError: any;
+            service.error$.subscribe((e: any) => emittedError = e);
+
+            service.handleHttpError(error);
+
+            expect(emittedError).toBeDefined();
         });
     });
 
     describe('handleAuthError', () => {
         it('should handle authentication errors', () => {
-            const error = new HttpErrorResponse({
-                status: 401,
-                error: { message: 'Unauthorized' }
-            });
-
-            service.handleAuthError(error);
+            service.handleAuthError();
             expect(router.navigate).toHaveBeenCalledWith(['/login']);
         });
 
         it('should handle forbidden errors', () => {
-            const error = new HttpErrorResponse({
-                status: 403,
-                error: { message: 'Forbidden' }
-            });
-
-            service.handleAuthError(error);
+            // For 403, navigate to /unauthorized
+            (router as any).url = '';
+            service.handleAuthError({ statusCode: 403 } as any);
             expect(router.navigate).toHaveBeenCalledWith(['/unauthorized']);
         });
     });
 
-    describe('showErrorNotification', () => {
-        it('should display error notification', () => {
-            service.showErrorNotification('Test error');
+    describe('error$', () => {
+        it('should emit errors to subscribers', () => {
+            const error = {
+                message: 'Test error',
+                statusCode: 500,
+                url: '/api/test',
+                method: 'GET'
+            };
+
+            let emittedError: any;
+            service.error$.subscribe((e: any) => emittedError = e);
+
+            service.handleHttpError(error);
+            expect(emittedError.message).toBe('Test error');
+        });
+    });
+
+    describe('authError$', () => {
+        it('should emit auth error signal', () => {
+            let emittedAuthError: boolean = false;
+            service.authError$.subscribe(() => emittedAuthError = true);
+
+            service.handleAuthError();
+            expect(emittedAuthError).toBe(true);
+        });
+    });
+
+    describe('getErrorHistory', () => {
+        it('should return recent error history', () => {
+            const error1 = { message: 'Error 1', statusCode: 500, url: '/api/test', method: 'GET' };
+            const error2 = { message: 'Error 2', statusCode: 500, url: '/api/test', method: 'GET' };
+
+            let capturedError: any;
+            service.error$.subscribe((e: any) => capturedError = e);
+
+            service.handleHttpError(error1);
+            service.handleHttpError(error2);
+
+            const history = service.getErrorHistory(10);
+            expect(history.length).toBe(2);
+        });
+    });
+
+    describe('clearHistory', () => {
+        it('should clear error history', () => {
+            const error = { message: 'Test error', statusCode: 500, url: '/api/test', method: 'GET' };
+
+            let capturedError: any;
+            service.error$.subscribe((e: any) => capturedError = e);
+
+            service.handleHttpError(error);
+            service.clearHistory();
+
+            const history = service.getErrorHistory(10);
+            expect(history.length).toBe(0);
         });
     });
 });

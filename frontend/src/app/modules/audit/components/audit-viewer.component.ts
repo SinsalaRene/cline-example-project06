@@ -95,7 +95,7 @@ import { AuditDetailComponent } from './audit-detail.component';
                         <p>Track and review all system events and changes</p>
                     </div>
                     <div class="action-buttons">
-                        <div class="export-dropdown" *ngIf="auditEntries.length > 0">
+                        <div class="export-dropdown" *ngIf="filteredEntries.length > 0">
                             <button mat-raised-button color="primary" (click)="toggleExportMenu()" matTooltip="Export audit log">
                                 <mat-icon>file_download</mat-icon>
                                 Export
@@ -329,8 +329,8 @@ import { AuditDetailComponent } from './audit-detail.component';
                         </th>
                         <td mat-cell *matCellDef="let entry">
                             <div class="action-badge">
-                                <mat-icon class="action-icon">{{ auditService.getActionIcon(entry.action) }}</mat-icon>
-                                <span>{{ auditService.getActionDisplay(entry.action) }}</span>
+                                <mat-icon class="action-icon">{{ auditServiceRef.getActionIcon(entry.action) }}</mat-icon>
+                                <span>{{ auditServiceRef.getActionDisplay(entry.action) }}</span>
                             </div>
                         </td>
                     </ng-container>
@@ -341,7 +341,7 @@ import { AuditDetailComponent } from './audit-detail.component';
                             Resource
                         </th>
                         <td mat-cell *matCellDef="let entry">
-                            <span class="resource-type-badge">{{ auditService.getResourceTypeDisplay(entry.resourceType) }}</span>
+                            <span class="resource-type-badge">{{ auditServiceRef.getResourceTypeDisplay(entry.resourceType) }}</span>
                         </td>
                     </ng-container>
 
@@ -393,7 +393,7 @@ import { AuditDetailComponent } from './audit-detail.component';
                         </th>
                         <td mat-cell *matCellDef="let entry">
                             <span class="duration-badge" *ngIf="entry.durationMs !== undefined">
-                                {{ auditService.formatDuration(entry.durationMs) }}
+                                {{ auditServiceRef.formatDuration(entry.durationMs) }}
                             </span>
                         </td>
                     </ng-container>
@@ -636,14 +636,14 @@ export class AuditViewerComponent implements OnInit {
     get activeFilterCount(): number {
         const controls = this.filterForm.controls;
         let count = 0;
-        if (controls.searchQuery.value) count++;
-        if (controls.dateFrom.value) count++;
-        if (controls.dateTo.value) count++;
-        if (controls.actionFilter.value?.length) count++;
-        if (controls.resourceTypeFilter.value?.length) count++;
-        if (controls.severityFilter.value?.length) count++;
-        if (controls.userFilter.value?.length) count++;
-        if (controls.successFilter.value) count++;
+        if (controls['searchQuery'].value) count++;
+        if (controls['dateFrom'].value) count++;
+        if (controls['dateTo'].value) count++;
+        if (controls['actionFilter'].value?.length) count++;
+        if (controls['resourceTypeFilter'].value?.length) count++;
+        if (controls['severityFilter'].value?.length) count++;
+        if (controls['userFilter'].value?.length) count++;
+        if (controls['successFilter'].value) count++;
         return count;
     }
 
@@ -689,8 +689,8 @@ export class AuditViewerComponent implements OnInit {
 
         this.auditService.getAuditLogs(page, this.pageSize, filters).subscribe({
             next: (response) => {
-                this.allEntries = response.items || [];
-                this.totalItems = response.total || 0;
+                this.allEntries = response.items ?? [];
+                this.totalItems = response.total ?? 0;
                 this.currentPage = page;
                 this.filteredEntries = [...this.allEntries];
                 this.availableUsers = this.auditService.getUniqueUsers(this.allEntries);
@@ -708,10 +708,9 @@ export class AuditViewerComponent implements OnInit {
             }
         });
 
-        this.auditService.getAuditSummary(
-            filterValue.dateFrom?.toISOString(),
-            filterValue.dateTo?.toISOString()
-        ).subscribe({
+        const dateFromStr = filterValue.dateFrom ? filterValue.dateFrom.toISOString() : undefined;
+        const dateToStr = filterValue.dateTo ? filterValue.dateTo.toISOString() : undefined;
+        this.auditService.getAuditSummary(dateFromStr, dateToStr).subscribe({
             next: (summary) => {
                 this.summary = summary;
             },

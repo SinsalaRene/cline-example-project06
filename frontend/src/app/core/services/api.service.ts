@@ -35,7 +35,7 @@ export class ApiService {
     }
 
     get<T>(endpoint: string, params?: HttpParams): Observable<ApiResponse<T>> {
-        return this.http.get<T>(`${this.baseUrl}${endpoint}`, {
+        return this.http.get<ApiResponse<T>>(`${this.baseUrl}${endpoint}`, {
             headers: this.getHeaders(),
             params
         }).pipe(

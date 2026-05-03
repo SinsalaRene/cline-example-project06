@@ -1,11 +1,17 @@
 import { Component, Inject } from '@angular/core';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatButtonModule } from '@angular/material/button';
 import { RulesService } from '../services/rules.service';
 
 @Component({
-    selector: 'app-rule-form-dialog',
-    template: `
+  selector: 'app-rule-form-dialog',
+  standalone: true,
+  imports: [MatDialogModule, ReactiveFormsModule, MatInputModule, MatFormFieldModule, MatSelectModule, MatButtonModule],
+  template: `
     <h2 mat-dialog-title>{{data.isEdit ? 'Edit' : 'Create'}} Firewall Rule</h2>
     <form [formGroup]="ruleForm" (ngSubmit)="onSubmit()">
       <mat-dialog-content>
@@ -51,54 +57,54 @@ import { RulesService } from '../services/rules.service';
       </mat-dialog-actions>
     </form>
   `,
-    styles: [`
+  styles: [`
     .full-width { width: 100%; margin-bottom: 16px; }
     mat-dialog-content { min-width: 400px; }
   `]
 })
 export class RuleFormDialogComponent {
-    ruleForm: FormGroup;
+  ruleForm: FormGroup;
 
-    constructor(
-        public dialogRef: MatDialogRef<RuleFormDialogComponent>,
-        @Inject(MAT_DIALOG_DATA) public data: any,
-        private fb: FormBuilder,
-        private rulesService: RulesService
-    ) {
-        this.ruleForm = this.fb.group({
-            ruleCollectionName: [data?.rule?.rule_collection_name || '', Validators.required],
-            priority: [data?.rule?.priority || 100, [Validators.required, Validators.min(1)]],
-            action: [data?.rule?.action || 'Deny', Validators.required],
-            protocol: [data?.rule?.protocol || 'Any', Validators.required],
-            description: [data?.rule?.description || '']
+  constructor(
+    public dialogRef: MatDialogRef<RuleFormDialogComponent>,
+    @Inject(MAT_DIALOG_DATA) public data: any,
+    private fb: FormBuilder,
+    private rulesService: RulesService
+  ) {
+    this.ruleForm = this.fb.group({
+      ruleCollectionName: [data?.rule?.rule_collection_name || '', Validators.required],
+      priority: [data?.rule?.priority || 100, [Validators.required, Validators.min(1)]],
+      action: [data?.rule?.action || 'Deny', Validators.required],
+      protocol: [data?.rule?.protocol || 'Any', Validators.required],
+      description: [data?.rule?.description || '']
+    });
+  }
+
+  onSubmit(): void {
+    if (this.ruleForm.valid) {
+      const ruleData = {
+        ...this.ruleForm.value,
+        source_addresses: this.ruleForm.value.source_addresses || [],
+        destination_fqdns: this.ruleForm.value.destination_fqdns || [],
+        source_ip_groups: this.ruleForm.value.source_ip_groups || [],
+        destination_ports: this.ruleForm.value.destination_ports || []
+      };
+
+      if (this.data.isEdit && this.data.rule?.id) {
+        this.rulesService.updateRule(this.data.rule.id, ruleData).subscribe({
+          next: () => this.dialogRef.close(true),
+          error: (err: any) => console.error('Error updating rule:', err)
         });
+      } else {
+        this.rulesService.createRule(ruleData).subscribe({
+          next: () => this.dialogRef.close(true),
+          error: (err: any) => console.error('Error creating rule:', err)
+        });
+      }
     }
+  }
 
-    onSubmit(): void {
-        if (this.ruleForm.valid) {
-            const ruleData = {
-                ...this.ruleForm.value,
-                source_addresses: this.ruleForm.value.source_addresses || [],
-                destination_fqdns: this.ruleForm.value.destination_fqdns || [],
-                source_ip_groups: this.ruleForm.value.source_ip_groups || [],
-                destination_ports: this.ruleForm.value.destination_ports || []
-            };
-
-            if (this.data.isEdit && this.data.rule?.id) {
-                this.rulesService.updateRule(this.data.rule.id, ruleData).subscribe({
-                    next: () => this.dialogRef.close(true),
-                    error: (err: any) => console.error('Error updating rule:', err)
-                });
-            } else {
-                this.rulesService.createRule(ruleData).subscribe({
-                    next: () => this.dialogRef.close(true),
-                    error: (err: any) => console.error('Error creating rule:', err)
-                });
-            }
-        }
-    }
-
-    onCancel(): void {
-        this.dialogRef.close();
-    }
+  onCancel(): void {
+    this.dialogRef.close();
+  }
 }

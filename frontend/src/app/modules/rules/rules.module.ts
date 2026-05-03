@@ -26,12 +26,7 @@ import { ConfirmationDialogComponent } from './components/confirmation-dialog.co
 import { RulesService } from './services/rules.service';
 
 @NgModule({
-    declarations: [
-        RulesListComponent,
-        RuleFormDialogComponent,
-        RuleDetailComponent,
-        ConfirmationDialogComponent
-    ],
+    declarations: [],
     imports: [
         CommonModule,
         ReactiveFormsModule,
@@ -52,13 +47,14 @@ import { RulesService } from './services/rules.service';
         MatExpansionModule,
         MatCheckboxModule,
         MatSnackBarModule,
-        RouterModule
-    ],
-    exports: [
+        RouterModule,
         RulesListComponent,
         RuleFormDialogComponent,
         RuleDetailComponent,
         ConfirmationDialogComponent
+    ],
+    exports: [
+        RouterModule
     ],
     providers: [RulesService]
 })

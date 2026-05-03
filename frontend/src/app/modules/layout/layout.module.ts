@@ -1,22 +1,20 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
-import {
-    MatSidenavModule,
-    MatListModule,
-    MatTabsModule,
-    MatMenuModule,
-    MatIconModule,
-    MatButtonModule,
-    MatDividerModule,
-    MatProgressBarModule,
-    MatTooltipModule,
-    MatChipsModule,
-    MatSnackBarModule
-} from '@angular/material';
+import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatListModule } from '@angular/material/list';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
 
-import { LayoutComponent } from './layout.component';
 import { ErrorNotificationComponent } from '../../shared/components/error-notification/error-notification.component';
+import { LayoutComponent } from './layout.component';
 import { SharedModule } from '../../shared/shared.module';
 
 /**
@@ -40,10 +38,7 @@ import { SharedModule } from '../../shared/shared.module';
  * ```
  */
 @NgModule({
-    declarations: [
-        LayoutComponent,
-        ErrorNotificationComponent
-    ],
+    declarations: [],
     imports: [
         CommonModule,
         ReactiveFormsModule,
@@ -58,7 +53,9 @@ import { SharedModule } from '../../shared/shared.module';
         MatProgressBarModule,
         MatTooltipModule,
         MatChipsModule,
-        MatSnackBarModule
+        MatSnackBarModule,
+        LayoutComponent,
+        ErrorNotificationComponent
     ],
     exports: [
         LayoutComponent

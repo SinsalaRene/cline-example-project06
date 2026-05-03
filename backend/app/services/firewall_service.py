@@ -21,6 +21,8 @@ from app.integrations.azure_client import (
     AzureAuthenticationError,
     AzureResourceNotFoundError,
 )
+from app.integrations import create_azure_client
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -470,12 +472,7 @@ class FirewallService:
         # Try to delete from Azure if configured
         if azure_resource_group and azure_policy_name:
             try:
-                azure_client = AzureClient(
-                    tenant_id="",
-                    client_id="",
-                    client_secret="",
-                    subscription_id="",
-                )
+                azure_client = create_azure_client(settings)
                 # The rule's azure_resource_id would contain the Azure rule name
                 if hasattr(rule, "rule_collection_name") and rule.rule_collection_name:
                     self._logger.info(
@@ -888,7 +885,7 @@ class FirewallService:
         pattern = (
             r"^(?:[a-zA-Z0-9]"
             r"(?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?"
-            r"\.)+[a-zA-Z]{2,})$"
+            r"\.)+[a-zA-Z]{2,}$"
         )
         return bool(re.match(pattern, fqdn.strip()))
 
@@ -934,17 +931,9 @@ class FirewallService:
         )
 
         try:
-            from app.config import settings
+            azure_client = create_azure_client(settings)
 
-            azure_client = AzureClient(
-                tenant_id=settings.azure_tenant_id,
-                client_id=settings.azure_client_id,
-                client_secret=settings.azure_client_secret,
-                subscription_id=settings.azure_subscription_id,
-                location=settings.azure_region,
-            )
-
-            # Get rules from Azure
+            # Get rules from Azure (mock or real)
             azure_rules = azure_client.get_firewall_rules_from_azure(
                 azure_resource_group, azure_policy_name
             )
@@ -1002,15 +991,7 @@ class FirewallService:
         }
 
         try:
-            from app.config import settings
-
-            azure_client = AzureClient(
-                tenant_id=settings.azure_tenant_id,
-                client_id=settings.azure_client_id,
-                client_secret=settings.azure_client_secret,
-                subscription_id=settings.azure_subscription_id,
-                location=settings.azure_region,
-            )
+            azure_client = create_azure_client(settings)
 
             # Get rules to sync
             if rule_ids:

@@ -4,7 +4,7 @@
  * Unit tests for the shared module, interceptors, error handler,
  * theme service, and error notification component.
  *
- * Run with: ng test --include="**/shared/**"
+ * Run with: npm run test (all specs in this file)
  */
 
 describe('Shared Infrastructure', () => {
@@ -200,14 +200,15 @@ describe('Shared Infrastructure', () => {
             // Auth errors should not auto-dismiss (0s)
             // Default errors should show for 5 seconds
 
-            const delays: Record<number, number> = {
-                401: 0,     // No auto-dismiss
-                500: 10000,  // 10 seconds
-                default: 5000 // 5 seconds
+            const delays: Record<string, number> = {
+                '401': 0,     // No auto-dismiss
+                '500': 10000,  // 10 seconds
+                'default': 5000 // 5 seconds
             };
 
-            expect(delays[401]).toBe(0);
-            expect(delays[500]).toBe(10000);
+            expect(delays['401']).toBe(0);
+            expect(delays['500']).toBe(10000);
+            expect(delays['default']).toBe(5000);
         });
     });
 

@@ -72,10 +72,10 @@
           </div>
         </div>
 
-        <div
-          class="tags-section"
-          *ngIf="workload.tags && Object.keys(workload.tags).length > 0"
-        >
+          <div
+        class="tags-section"
+        *ngIf="workload.tags && getTagsArray().length > 0"
+      >
           <label>Tags</label>
           <div class="tags-list">
             <mat-chip *ngFor="let tag of getTagsArray()">
@@ -105,7 +105,7 @@
           <button
             mat-raised-button
             color="primary"
-            (click)="showAssociateDialog()"
+              (click)="associateRule('', 'include')"
           >
             <mat-icon>add</mat-icon>
             Associate Rule
@@ -196,7 +196,7 @@
           <button
             mat-raised-button
             color="primary"
-            (click)="showAssociateDialog()"
+            (click)="associateRule('', 'include')"
           >
             Associate a Rule
           </button>

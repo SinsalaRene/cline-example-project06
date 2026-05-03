@@ -1,18 +1,17 @@
-import { TestBed, fakeAsync, tick, flushMicroTasks } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { HttpRequest, HttpHandler, HttpEvent, HTTP_INTERCEPTORS } from '@angular/common/http';
-import { HttpErrorResponse, HttpClientTestingModule } from '@angular/common/http/testing';
+import { HttpErrorResponse } from '@angular/common/http';
+import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { Observable, throwError, of } from 'rxjs';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 
 describe('AuthService', () => {
     let service: AuthService;
-    let router: jasmine.SpyObj<Router>;
-    let httpBackend: jasmine.SpyObj<any>;
+    let router: jest.Mocked<Router>;
 
     beforeEach(() => {
-        const routerSpy = jasmine.createSpyObj('Router', ['navigate']);
-        const httpBackendSpy = jasmine.createSpyObj('HttpTestingController', ['match', 'expectOne', 'verify']);
+        const routerSpy = { navigate: jest.fn() };
 
         TestBed.configureTestingModule({
             providers: [
@@ -23,7 +22,7 @@ describe('AuthService', () => {
         });
 
         service = TestBed.inject(AuthService);
-        router = TestBed.inject(Router) as jasmine.SpyObj<Router>;
+        router = TestBed.inject(Router) as jest.Mocked<Router>;
     });
 
     it('should be created', () => {
@@ -105,16 +104,19 @@ describe('AuthService', () => {
         });
     });
 
-    describe('isAuthenticated', () => {
-        it('should return true when token exists', () => {
+    describe('isLoggedIn signal', () => {
+        it('should return true when user is logged in', () => {
             localStorage.setItem('auth_token', 'test-token');
-            const result = service.isAuthenticated();
+            localStorage.setItem('user', JSON.stringify({ display_name: 'Test User', email: 'test@example.com', object_id: '1' }));
+            const result = service.isLoggedIn();
             expect(result).toBe(true);
         });
 
-        it('should return false when token does not exist', () => {
+        it('should return false when user is not logged in', () => {
             localStorage.removeItem('auth_token');
-            const result = service.isAuthenticated();
+            localStorage.removeItem('user');
+            const freshService = TestBed.inject(AuthService);
+            const result = freshService.isLoggedIn();
             expect(result).toBe(false);
         });
     });
@@ -122,22 +124,15 @@ describe('AuthService', () => {
     describe('hasPermission', () => {
         it('should return true for valid permission', () => {
             localStorage.setItem('auth_token', 'test-token');
-            localStorage.setItem('user_permissions', JSON.stringify(['rules:create', 'rules:read']));
-            const result = service.hasPermission('rules:create');
+            localStorage.setItem('user', JSON.stringify({ display_name: 'Test', email: 'test@example.com', object_id: '1', roles: ['admin'] }));
+            const result = service.hasPermission('admin');
             expect(result).toBe(true);
         });
 
         it('should return false for invalid permission', () => {
             localStorage.setItem('auth_token', 'test-token');
-            localStorage.setItem('user_permissions', JSON.stringify(['rules:read']));
-            const result = service.hasPermission('rules:create');
-            expect(result).toBe(false);
-        });
-
-        it('should return false when user has no permissions', () => {
-            localStorage.setItem('auth_token', 'test-token');
-            localStorage.setItem('user_permissions', JSON.stringify([]));
-            const result = service.hasPermission('any:permission');
+            localStorage.setItem('user', JSON.stringify({ display_name: 'Test', email: 'test@example.com', object_id: '1', roles: ['user'] }));
+            const result = service.hasPermission('admin');
             expect(result).toBe(false);
         });
     });
@@ -145,66 +140,55 @@ describe('AuthService', () => {
     describe('hasRole', () => {
         it('should return true for valid role', () => {
             localStorage.setItem('auth_token', 'test-token');
-            localStorage.setItem('user_roles', JSON.stringify(['admin', 'user']));
+            localStorage.setItem('user', JSON.stringify({ display_name: 'Test', email: 'test@example.com', object_id: '1', roles: ['admin', 'user'] }));
             const result = service.hasRole('admin');
             expect(result).toBe(true);
         });
 
         it('should return false for invalid role', () => {
             localStorage.setItem('auth_token', 'test-token');
-            localStorage.setItem('user_roles', JSON.stringify(['user']));
+            localStorage.setItem('user', JSON.stringify({ display_name: 'Test', email: 'test@example.com', object_id: '1', roles: ['user'] }));
             const result = service.hasRole('admin');
             expect(result).toBe(false);
         });
     });
 
-    describe('refreshToken', () => {
-        it('should refresh the authentication token', fakeAsync(() => {
-            service.refreshToken().subscribe({
-                next: () => { },
-                error: () => { }
-            });
-            tick(1000);
-        }));
-
-        it('should handle refresh token failure', fakeAsync(() => {
-            service.refreshToken().subscribe({
-                next: () => { },
-                error: () => { }
-            });
-            tick(1000);
-        }));
-    });
-
-    describe('isLoggedIn', () => {
-        it('should return true when user is authenticated', () => {
-            localStorage.setItem('auth_token', 'test-token');
-            const result = service.isLoggedIn();
-            expect(result).toBe(true);
-        });
-
-        it('should return false when user is not authenticated', () => {
-            localStorage.removeItem('auth_token');
-            const result = service.isLoggedIn();
-            expect(result).toBe(false);
-        });
-    });
-
-    describe('getUser', () => {
-        it('should return user information', () => {
-            localStorage.setItem('user_info', JSON.stringify({
+    describe('user$ observable', () => {
+        it('should emit user information', (done) => {
+            localStorage.setItem('user', JSON.stringify({
                 id: '1',
                 email: 'test@example.com',
+                display_name: 'Test User',
                 roles: ['admin']
             }));
-            const user = service.getUser();
-            expect(user.email).toBe('test@example.com');
+            const freshService = TestBed.inject(AuthService);
+            freshService.user$.subscribe((user) => {
+                expect(user?.email).toBe('test@example.com');
+                done();
+            });
         });
 
-        it('should return null when no user is logged in', () => {
-            localStorage.removeItem('user_info');
-            const user = service.getUser();
-            expect(user).toBeNull();
+        it('should return null when no user is logged in', (done) => {
+            localStorage.removeItem('user');
+            const freshService = TestBed.inject(AuthService);
+            freshService.user$.subscribe((user) => {
+                expect(user).toBeNull();
+                done();
+            });
+        });
+    });
+
+    describe('userName signal', () => {
+        it('should return username when user is logged in', () => {
+            localStorage.setItem('user', JSON.stringify({ display_name: 'Test User', email: 'test@example.com', object_id: '1' }));
+            const freshService = TestBed.inject(AuthService);
+            expect(freshService.userName()).toBe('Test User');
+        });
+
+        it('should return empty string when no user is logged in', () => {
+            localStorage.removeItem('user');
+            const freshService = TestBed.inject(AuthService);
+            expect(freshService.userName()).toBe('');
         });
     });
 });

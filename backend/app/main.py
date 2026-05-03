@@ -73,8 +73,7 @@ from typing import Any, Dict
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.openapi.models import ExternalDoc
-from fastapi.openapi.utils import openapi
+# fastapi.openapi.utils.openapi was removed in FastAPI 0.104+, use app.openapi() instead
 
 from app.config import settings
 from app.database import init_db
@@ -323,7 +322,8 @@ def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
 
-    openapi_schema = openapi(app)
+    # In FastAPI 0.104+, use app.openapi() directly instead of openapi(app)
+    openapi_schema = app.openapi()
 
     # Add external documentation link
     openapi_schema.setdefault("info", {}).setdefault("x-api-info", {
@@ -488,7 +488,7 @@ def custom_openapi():
     ]
 
     app.openapi_schema = openapi_schema
-    return app.openapi_schema
+    return openapi_schema
 
 
 app.openapi = custom_openapi  # type: ignore[assignment]

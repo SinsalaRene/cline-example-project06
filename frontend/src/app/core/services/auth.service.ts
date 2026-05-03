@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, BehaviorSubject, tap } from 'rxjs';
+import { Observable, BehaviorSubject, tap, map } from 'rxjs';
 import { Subject } from 'rxjs';
 
 export interface UserInfo {
@@ -14,7 +14,7 @@ export interface UserInfo {
 export class AuthService {
     private http = inject(HttpClient);
 
-    private userSubject = new BehaviorSubject<UserInfo | null>(null);
+    public userSubject = new BehaviorSubject<UserInfo | null>(null);
     public user$ = this.userSubject.asObservable();
 
     public isLoggedIn = signal<boolean>(false);
@@ -78,6 +78,7 @@ export class AuthService {
      */
     get isLoggedIn$(): Observable<boolean> {
         return this.user$.pipe(
+            map(user => !!user),
             tap(user => {
                 // Triggered on subscription for template async pipe compatibility
             })

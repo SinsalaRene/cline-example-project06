@@ -78,6 +78,13 @@ class ApprovalRequestCreate(BaseModel):
     approval_flow: str = "multi_level"
 
 
+class ApprovalRequestUpdate(BaseModel):
+    """Schema for updating an approval request."""
+    status: Optional[str] = None
+    comment: Optional[str] = None
+    description: Optional[str] = None
+
+
 class ApprovalRequestApprove(BaseModel):
     """Schema for approving an approval request."""
     comment: Optional[str] = None
@@ -91,6 +98,15 @@ class ApprovalRequestReject(BaseModel):
 class ApprovalRequestComment(BaseModel):
     """Schema for adding a comment to an approval request."""
     comment: str
+
+
+class PaginatedApprovalResponse(BaseModel):
+    """Schema for paginated approval request response."""
+    items: list[dict]
+    total: int
+    page: int
+    per_page: int
+    pages: int
 
 
 # --- Response Schemas ---

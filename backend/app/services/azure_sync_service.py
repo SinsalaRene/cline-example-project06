@@ -26,6 +26,7 @@ from app.integrations.azure_client import (
     AzureRuleValidationError,
     create_azure_client_from_settings,
 )
+from app.integrations import create_azure_client
 from app.models.firewall_rule import FirewallRule, FirewallRuleStatus
 from app.models.audit import AuditLog
 
@@ -204,10 +205,14 @@ class AzureSyncService:
         logger.info("AzureSyncService initialized")
 
     @property
-    def azure_client(self) -> AzureClient:
-        """Get the Azure client, creating it if necessary."""
+    def azure_client(self):
+        """Get the Azure client, creating it if necessary.
+
+        When AZURE_MOCK_MODE=true, returns a MockAzureClient instead
+        of the real Azure SDK client.
+        """
         if self._azure_client is None:
-            self._azure_client = create_azure_client_from_settings(self._settings)
+            self._azure_client = create_azure_client(self._settings)
             self._azure_client.authenticate()
         return self._azure_client
 

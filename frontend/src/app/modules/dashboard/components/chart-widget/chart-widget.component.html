@@ -54,7 +54,7 @@
             cy="0"
             r="80"
             fill="none"
-            stroke="{{ getDoughnutColor(i, chartData.length) }}"
+            [attr.stroke]="getDoughnutColor(i, chartData.length)"
             stroke-width="30"
             [attr.stroke-dasharray]="getDoughnutDash(item.value, chartData)"
             [attr.stroke-dashoffset]="getDoughnutOffset(i, chartData)"

@@ -10,4 +10,20 @@ export class MetricCardComponent {
     @Input() stat!: DashboardStat;
     @Input() trendIcon: string = '';
     @Input() trendColor: string = '';
+    @Input() trendIconFn: ((trend: string) => string) | null = null;
+    @Input() trendColorFn: ((trend: string) => string) | null = null;
+
+    getTrendIcon(): string {
+        if (this.trendIconFn && this.stat?.trend) {
+            return this.trendIconFn(this.stat.trend);
+        }
+        return this.trendIcon || 'trending_up';
+    }
+
+    getTrendColor(): string {
+        if (this.trendColorFn && this.stat?.trend) {
+            return this.trendColorFn(this.stat.trend);
+        }
+        return this.trendColor || '#2196F3';
+    }
 }

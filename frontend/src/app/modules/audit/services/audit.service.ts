@@ -151,17 +151,17 @@ export class AuditService {
 
         const queryParams: Record<string, string> = {};
         if (params.filters) {
-            if (params.filters.searchQuery) queryParams.search = params.filters.searchQuery;
-            if (params.filters.dateFrom) queryParams.date_from = params.filters.dateFrom;
-            if (params.filters.dateTo) queryParams.date_to = params.filters.dateTo;
-            if (params.filters.actionFilter?.length) queryParams.actions = params.filters.actionFilter.join(',');
-            if (params.filters.resourceTypeFilter?.length) queryParams.resource_types = params.filters.resourceTypeFilter.join(',');
-            if (params.filters.severityFilter?.length) queryParams.severity = params.filters.severityFilter.join(',');
+            if (params.filters.searchQuery) queryParams['search'] = params.filters.searchQuery;
+            if (params.filters.dateFrom) queryParams['date_from'] = params.filters.dateFrom;
+            if (params.filters.dateTo) queryParams['date_to'] = params.filters.dateTo;
+            if (params.filters.actionFilter?.length) queryParams['actions'] = params.filters.actionFilter.join(',');
+            if (params.filters.resourceTypeFilter?.length) queryParams['resource_types'] = params.filters.resourceTypeFilter.join(',');
+            if (params.filters.severityFilter?.length) queryParams['severity'] = params.filters.severityFilter.join(',');
         }
 
-        if (params.dateFrom) queryParams.date_from = params.dateFrom;
-        if (params.dateTo) queryParams.date_to = params.dateTo;
-        if (params.title) queryParams.title = params.title;
+        if (params.dateFrom) queryParams['date_from'] = params.dateFrom;
+        if (params.dateTo) queryParams['date_to'] = params.dateTo;
+        if (params.title) queryParams['title'] = params.title;
 
         return this.http.get(url, {
             params: new HttpParams({ fromObject: queryParams }),

@@ -8,6 +8,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FormsModule } from '@angular/forms';
+import { LowerCasePipe } from '@angular/common';
 import { RulesService, FirewallRule } from '../services/rules.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { CommonModule } from '@angular/common';
@@ -30,7 +31,8 @@ interface RuleDetailTab {
     MatChipsModule,
     MatProgressSpinnerModule,
     FormsModule,
-    CommonModule
+    CommonModule,
+    LowerCasePipe
   ],
   template: `
     <div class="rule-detail-container">
@@ -101,18 +103,18 @@ interface RuleDetailTab {
             <div class="detail-section">
               <h3>Address Configuration</h3>
 
-              <mat-expansion-panel class="detail-panel">
+                <mat-expansion-panel class="detail-panel">
                 <mat-expansion-panel-header>
                   <mat-panel-title>
                     <mat-icon>public</mat-icon>
                     Source Addresses
                   </mat-panel-title>
                 </mat-expansion-panel-header>
-                <ng-content *ngIf="data.rule?.source_addresses && data.rule.source_addresses.length > 0; else noAddresses">
+                <ng-container *ngIf="data.rule?.source_addresses?.length as addrLen; else noAddresses">
                   <ul class="address-list">
                     <li *ngFor="let addr of data.rule.source_addresses">{{ addr }}</li>
                   </ul>
-                </ng-content>
+                </ng-container>
                 <ng-template #noAddresses>
                   <p class="empty-text">No source addresses configured.</p>
                 </ng-template>
@@ -125,11 +127,11 @@ interface RuleDetailTab {
                     Source IP Groups
                   </mat-panel-title>
                 </mat-expansion-panel-header>
-                <ng-content *ngIf="data.rule?.source_ip_groups && data.rule.source_ip_groups.length > 0; else noIpGroups">
+                <ng-container *ngIf="data.rule?.source_ip_groups?.length as grpLen; else noIpGroups">
                   <ul class="address-list">
                     <li *ngFor="let group of data.rule.source_ip_groups">{{ group }}</li>
                   </ul>
-                </ng-content>
+                </ng-container>
                 <ng-template #noIpGroups>
                   <p class="empty-text">No source IP groups configured.</p>
                 </ng-template>
@@ -142,11 +144,11 @@ interface RuleDetailTab {
                     Destination FQDNs
                   </mat-panel-title>
                 </mat-expansion-panel-header>
-                <ng-content *ngIf="data.rule?.destination_fqdns && data.rule.destination_fqdns.length > 0; else noFqdns">
+                <ng-container *ngIf="data.rule?.destination_fqdns?.length as fqdnLen; else noFqdns">
                   <ul class="address-list">
                     <li *ngFor="let fqdn of data.rule.destination_fqdns">{{ fqdn }}</li>
                   </ul>
-                </ng-content>
+                </ng-container>
                 <ng-template #noFqdns>
                   <p class="empty-text">No destination FQDNs configured.</p>
                 </ng-template>
@@ -159,11 +161,11 @@ interface RuleDetailTab {
                     Destination Ports
                   </mat-panel-title>
                 </mat-expansion-panel-header>
-                <ng-content *ngIf="data.rule?.destination_ports && data.rule.destination_ports.length > 0; else noPorts">
+                <ng-container *ngIf="data.rule?.destination_ports?.length as portLen; else noPorts">
                   <ul class="port-list">
                     <li *ngFor="let port of data.rule.destination_ports">{{ port }}</li>
                   </ul>
-                </ng-content>
+                </ng-container>
                 <ng-template #noPorts>
                   <p class="empty-text">No destination ports configured.</p>
                 </ng-template>

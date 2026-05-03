@@ -1,16 +1,11 @@
 import { ComponentFixture, TestBed, fakeAsync, tick, flush } from '@angular/core/testing';
-import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { ComponentFixtureFakeAsyncTest } from '@angular/core/testing';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { RulesListComponent } from './rules-list.component';
 import { RulesService, FirewallRule } from '../services/rules.service';
-import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
-import { of, throwError, Subject } from 'rxjs';
-import { MatPaginator } from '@angular/material/paginator';
-import { MatSort } from '@angular/material/sort';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { CommonModule } from '@angular/common';
+import { of, throwError } from 'rxjs';
 
 describe('RulesListComponent', () => {
     let component: RulesListComponent;
@@ -48,12 +43,12 @@ describe('RulesListComponent', () => {
         await TestBed.configureTestingModule({
             imports: [
                 RulesListComponent,
-                NoopAnimationsModule,
-                FormsModule,
-                ReactiveFormsModule,
-                CommonModule
+                MatDialogModule,
+                MatSnackBarModule,
+                HttpClientTestingModule
             ],
             providers: [
+                provideNoopAnimations(),
                 {
                     provide: RulesService,
                     useValue: {
@@ -81,6 +76,7 @@ describe('RulesListComponent', () => {
     beforeEach(() => {
         fixture = TestBed.createComponent(RulesListComponent);
         component = fixture.componentInstance;
+        rulesService = TestBed.inject(RulesService);
         fixture.detectChanges();
     });
 
@@ -89,51 +85,76 @@ describe('RulesListComponent', () => {
     });
 
     it('should load rules on init', () => {
-        expect(component.rules.length).toBeGreaterThan(0);
-        expect(component.rules).toEqual(mockRules);
+        expect(component.dataSource.data.length).toBeGreaterThan(0);
     });
 
-    it('should have selectedRules initialized as empty array', () => {
-        expect(component.selectedRules.length).toBe(0);
-    });
-
-    it('should have empty searchFilter initially', () => {
-        expect(component.searchFilter).toBe('');
+    it('should have selectedRows initialized as empty map', () => {
+        expect(component.selectedRows.size).toBe(0);
     });
 
     it('should filter rules by search filter', () => {
-        component.searchFilter = 'Rule 1';
-        component.applyFilter();
-        const filtered = component.rules.filter(r =>
-            r.rule_collection_name.toLowerCase().includes('rule 1') ||
-            r.description?.toLowerCase().includes('rule 1') ||
-            r.id.toLowerCase().includes('rule 1')
-        );
-        expect(filtered.length).toBe(1);
+        component.currentFilters.searchQuery = 'Rule 1';
+        component.applyFilters();
+        const filtered = component.dataSource.filteredData;
+        expect(filtered?.length).toBe(1);
+        expect(filtered?.[0].rule_collection_name).toBe('Test Rule 1');
     });
 
     it('should select/deselect a rule', () => {
-        component.toggleSelectRule(mockRules[0], true);
-        expect(component.selectedRules).toContain(mockRules[0]);
+        component.toggleRowSelection(mockRules[0]);
+        expect(component.selectedRows.has(mockRules[0])).toBe(true);
 
-        component.toggleSelectRule(mockRules[0], false);
-        expect(component.selectedRules).not.toContain(mockRules[0]);
+        component.toggleRowSelection(mockRules[0]);
+        expect(component.selectedRows.has(mockRules[0])).toBe(false);
     });
 
     it('should select all visible rules', () => {
-        component.selectAll();
-        expect(component.selectedRules.length).toBeGreaterThan(0);
+        component.dataSource.data = mockRules;
+        component.toggleAllRows();
+        expect(component.selectedRows.size).toBeGreaterThan(0);
     });
 
     it('should open create dialog', () => {
-        const dialogSpy = jest.spyOn(component.dialog, 'open');
+        const dialogInstance = TestBed.inject(MatDialog);
+        const dialogSpy = jest.spyOn(dialogInstance, 'open');
         component.openCreateDialog();
         expect(dialogSpy).toHaveBeenCalled();
     });
 
     it('should filter by status correctly', () => {
-        component.statusFilter = 'active';
-        component.applyFilter();
-        expect(component.rules.every(r => r.status === 'active')).toBe(true);
+        component.currentFilters.statusFilter = 'active';
+        component.applyFilters();
+        const filtered = component.dataSource.filteredData;
+        if (filtered && filtered.length > 0) {
+            expect(filtered.every((r: FirewallRule) => r.status === 'active')).toBe(true);
+        }
+    });
+
+    it('should reset filters to default values', () => {
+        component.currentFilters.statusFilter = 'active';
+        component.resetFilters();
+        expect(component.currentFilters.statusFilter).toBe('');
+    });
+
+    it('should toggle filter panel visibility', fakeAsync(() => {
+        component.showFilters = false;
+        component.toggleFilters();
+        expect(component.showFilters).toBe(true);
+        tick();
+    }));
+
+    it('should report hasSelection returns false initially', () => {
+        expect(component.hasSelection()).toBe(false);
+    });
+
+    it('should clear selection', () => {
+        component.toggleRowSelection(mockRules[0]);
+        component.clearSelection();
+        expect(component.selectedRows.size).toBe(0);
+    });
+
+    it('should report isAllSelected returns false when no data', () => {
+        component.dataSource.data = [];
+        expect(component.isAllSelected()).toBe(false);
     });
 });

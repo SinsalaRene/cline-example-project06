@@ -6,8 +6,6 @@ import { DashboardComponent } from './dashboard.component';
 import { MetricCardComponent } from './components/metric-card/metric-card.component';
 import { ChartWidgetComponent } from './components/chart-widget/chart-widget.component';
 import { QuickActionPanelComponent } from './components/quick-action-panel/quick-action-panel.component';
-import { TrendChartComponent } from './components/trend-chart/trend-chart.component';
-import { DistributionChartComponent } from './components/distribution-chart/distribution-chart.component';
 import { ActivityFeedComponent } from './components/activity-feed/activity-feed.component';
 import { StatService } from './services/dashboard-stat.service';
 
@@ -17,8 +15,6 @@ import { StatService } from './services/dashboard-stat.service';
         MetricCardComponent,
         ChartWidgetComponent,
         QuickActionPanelComponent,
-        TrendChartComponent,
-        DistributionChartComponent,
         ActivityFeedComponent,
     ],
     imports: [
@@ -29,5 +25,12 @@ import { StatService } from './services/dashboard-stat.service';
     providers: [
         StatService,
     ],
+    exports: [
+        DashboardComponent,
+        MetricCardComponent,
+        ChartWidgetComponent,
+        QuickActionPanelComponent,
+        ActivityFeedComponent,
+    ]
 })
 export class DashboardModule { }

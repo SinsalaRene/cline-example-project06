@@ -3,10 +3,10 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { of, throwError } from 'rxjs';
-import { LoginComponent } from './login.component';
-import { AuthService } from '../../../core/services/auth.service';
+import { LoginComponent } from './login/login.component';
+import { AuthService } from '../../core/services/auth.service';
 import { HttpClientModule } from '@angular/common/http';
-import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { NO_ERRORS_SCHEMA, signal } from '@angular/core';
 
 describe('LoginComponent', () => {
     let component: LoginComponent;
@@ -16,7 +16,7 @@ describe('LoginComponent', () => {
 
     // Mock AuthService
     const mockAuthService: Partial<AuthService> = {
-        isLoggedIn: () => false,
+        isLoggedIn: signal<boolean>(false),
         login: jest.fn().mockReturnValue(of({
             token: 'mock_token',
             user: {
@@ -97,7 +97,7 @@ describe('LoginComponent', () => {
         expect(loginSpy).not.toHaveBeenCalled();
     });
 
-    it('should set error message on login failure', () => {
+    it('should set error message on login failure (401)', () => {
         const error$ = throwError(() => ({ status: 401, error: { detail: 'Invalid credentials' } }));
         jest.spyOn(authService, 'login').mockReturnValue(error$ as any);
 
@@ -108,10 +108,11 @@ describe('LoginComponent', () => {
         component.onSubmit();
 
         expect(component.isLoading).toBe(false);
-        expect(component.errorMessage).toBe('Invalid credentials');
+        expect(component.showError).toBe(true);
+        expect(component.errorMessage).toBe('Invalid email or password. Please check your credentials and try again.');
     });
 
-    it('should handle 403 error', () => {
+    it('should handle 403 error with user-friendly message', () => {
         const error$ = throwError(() => ({ status: 403, error: { detail: 'Access denied' } }));
         jest.spyOn(authService, 'login').mockReturnValue(error$ as any);
 
@@ -121,10 +122,11 @@ describe('LoginComponent', () => {
         });
         component.onSubmit();
 
-        expect(component.errorMessage).toBe('Access denied');
+        expect(component.showError).toBe(true);
+        expect(component.errorMessage).toBe('Your account is restricted. Contact your administrator.');
     });
 
-    it('should handle unknown errors', () => {
+    it('should handle unknown errors with fallback message', () => {
         const error$ = throwError(() => ({ status: 500 }));
         jest.spyOn(authService, 'login').mockReturnValue(error$ as any);
 
@@ -134,7 +136,37 @@ describe('LoginComponent', () => {
         });
         component.onSubmit();
 
-        expect(component.errorMessage).toBe('Login failed. Please try again.');
+        expect(component.showError).toBe(true);
+        expect(component.errorType).toBe('server');
+    });
+
+    it('should handle 503 server error with appropriate message', () => {
+        const error$ = throwError(() => ({ status: 503 }));
+        jest.spyOn(authService, 'login').mockReturnValue(error$ as any);
+
+        component.loginForm.setValue({
+            username: 'test@example.com',
+            password: 'password123'
+        });
+        component.onSubmit();
+
+        expect(component.showError).toBe(true);
+        expect(component.errorMessage).toBe('Authentication service is temporarily unavailable. Please try again later.');
+        expect(component.errorType).toBe('server');
+    });
+
+    it('should handle 422 validation error', () => {
+        const error$ = throwError(() => ({ status: 422, error: { detail: 'Bad request body' } }));
+        jest.spyOn(authService, 'login').mockReturnValue(error$ as any);
+
+        component.loginForm.setValue({
+            username: 'test@example.com',
+            password: 'password123'
+        });
+        component.onSubmit();
+
+        expect(component.showError).toBe(true);
+        expect(component.errorType).toBe('validation');
     });
 
     it('should toggle password visibility', () => {
@@ -152,13 +184,13 @@ describe('LoginComponent', () => {
         expect(window.location.href).toContain('login.microsoftonline.com');
     });
 
-    it('should get username form control', () => {
-        const usernameControl = component.username;
+    it('should access username form control via loginForm.get()', () => {
+        const usernameControl = component.loginForm.get('username');
         expect(usernameControl).toBeDefined();
     });
 
-    it('should get password form control', () => {
-        const passwordControl = component.password;
+    it('should access password form control via loginForm.get()', () => {
+        const passwordControl = component.loginForm.get('password');
         expect(passwordControl).toBeDefined();
     });
 });

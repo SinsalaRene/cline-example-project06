@@ -574,7 +574,7 @@ class AzureClient:
             return False
 
         import re
-        pattern = r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,})$"
+        pattern = r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
         return bool(re.match(pattern, fqdn.strip()))
 
     def _validate_ip_address(self, addr: str) -> bool:

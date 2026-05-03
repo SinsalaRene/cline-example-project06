@@ -1,8 +1,8 @@
 # Azure SDK
 azure-identity==1.15.0
-azure-mgmt-network==26.1.0
+azure-mgmt-network==26.0.0
 azure-mgmt-resource==15.0.0
-azure-mgmt-firewall==1.1.0
+# azure-mgmt-firewall==1.1.0
 azure-mgmt-keyvault==10.0.0
 
 # Web Framework

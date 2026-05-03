@@ -11,7 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { Router, RouterModule } from '@angular/router';
@@ -102,10 +102,18 @@ export class WorkloadsListComponent implements OnInit {
         this.loadWorkloads(1);
     }
 
-    selectAll(): void {
+    hasPermission(_permission: string): boolean {
+        return true;
+    }
+
+    selectAll(all: boolean | null): void {
         if (this.dataSource.data.length) {
             this.selection.clear();
-            this.dataSource.data.forEach(row => this.selection.add(row.id));
+            this.dataSource.data.forEach((row: { id: string; }) => {
+                if (all !== null) {
+                    this.selection.add(row.id);
+                }
+            });
         }
     }
 
@@ -147,7 +155,7 @@ export class WorkloadsListComponent implements OnInit {
             }
         });
 
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe((result: boolean) => {
             if (result) {
                 this.bulkDelete();
             }
@@ -157,12 +165,12 @@ export class WorkloadsListComponent implements OnInit {
     bulkDelete(): void {
         const ids = Array.from(this.selection);
         this.workloadsService.bulkDelete(ids).subscribe({
-            next: (result) => {
+            next: (result: { success: number }) => {
                 this.snackBar.open(`Deleted ${result.success} workload(s)`, 'Close', { duration: 3000 });
                 this.selection.clear();
                 this.loadWorkloads(this.currentPage);
             },
-            error: (error) => {
+            error: (error: Error) => {
                 this.snackBar.open('Error deleting workloads: ' + error.message, 'Close', { duration: 3000 });
             }
         });
@@ -178,14 +186,14 @@ export class WorkloadsListComponent implements OnInit {
             }
         });
 
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe((result: boolean) => {
             if (result) {
                 this.workloadsService.deleteWorkload(id).subscribe({
                     next: () => {
                         this.snackBar.open(`Workload "${name}" deleted`, 'Close', { duration: 3000 });
                         this.loadWorkloads(this.currentPage);
                     },
-                    error: (error) => {
+                    error: (error: Error) => {
                         this.snackBar.open('Error deleting workload: ' + error.message, 'Close', { duration: 3000 });
                     }
                 });

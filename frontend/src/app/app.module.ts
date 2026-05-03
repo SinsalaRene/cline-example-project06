@@ -1,6 +1,6 @@
 import { NgModule, Provider } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
-import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
@@ -20,13 +20,14 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatToolbarModule } from '@angular/material/toolbar';
 
 import { AppRoutingModule } from './app-routing.module';
-import { AppComponent } from './components/app.component';
-import { LayoutModule } from './modules/layout.module';
+import { AppComponent } from './app.component';
+import { LayoutModule } from './modules/layout/layout.module';
 import { SharedModule } from './shared/shared.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { CoreService } from './core/services/api.service';
+import { ApiService } from './core/services/api.service';
 import { AuthService } from './core/services/auth.service';
 import { ErrorHandlerService } from './core/services/error-handler.service';
 import { ThemeService } from './core/services/theme.service';
@@ -45,7 +46,6 @@ const HTTP_INTERCEPTOR_PROVIDERS: Provider[] = [
     ],
     imports: [
         BrowserModule,
-        BrowserAnimationsModule,
         HttpClientModule,
         ReactiveFormsModule,
         FormsModule,
@@ -71,12 +71,14 @@ const HTTP_INTERCEPTOR_PROVIDERS: Provider[] = [
         MatChipsModule,
         MatSidenavModule,
         MatMenuModule,
+        MatToolbarModule,
     ],
     providers: [
-        CoreService,
+        ApiService,
         AuthService,
         ErrorHandlerService,
         ThemeService,
+        provideAnimationsAsync(),
         ...HTTP_INTERCEPTOR_PROVIDERS
     ],
     bootstrap: [AppComponent],

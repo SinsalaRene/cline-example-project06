@@ -21,6 +21,7 @@ export interface BulkActionData {
     selector: 'app-bulk-action-dialog',
     standalone: true,
     imports: [
+        ReactiveFormsModule,
         CommonModule,
         MatDialogModule,
         MatButtonModule,

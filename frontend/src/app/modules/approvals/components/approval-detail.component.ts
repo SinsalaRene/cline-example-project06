@@ -340,7 +340,9 @@ export class ApprovalDetailComponent implements OnInit {
         if (!this.approval) return;
         this.approvalsService.deleteComment(this.approval.id, commentId).subscribe({
             next: () => {
-                this.approval!.comments = this.approval.comments.filter(c => c.id !== commentId);
+                if (this.approval) {
+                    this.approval.comments = this.approval.comments.filter(c => c.id !== commentId);
+                }
                 this.snackBar.open('Comment deleted.', 'Close', { duration: 2000 });
             },
             error: () => this.snackBar.open('Error deleting comment.', 'Close', { duration: 3000 })

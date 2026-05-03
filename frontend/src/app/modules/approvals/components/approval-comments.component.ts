@@ -297,7 +297,7 @@ export class ApprovalCommentsComponent implements OnInit {
         this.commentForm.setValue({ text: '' });
 
         // Subscribe to form value changes
-        this.commentFormSubscription = this.commentForm.valueChanges.subscribe(value => {
+        this.commentFormSubscription = this.commentForm.valueChanges.subscribe((value: any) => {
             console.log('Comment form value changed:', value);
         });
     }

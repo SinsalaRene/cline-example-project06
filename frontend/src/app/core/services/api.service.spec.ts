@@ -6,10 +6,10 @@ import { AuthService } from './auth.service';
 describe('ApiService', () => {
     let service: ApiService;
     let httpTestingController: HttpTestingController;
-    let authService: jasmine.SpyObj<AuthService>;
+    let authService: jest.Mocked<AuthService>;
 
     beforeEach(() => {
-        const authServiceSpy = jasmine.createSpyObj('AuthService', ['isAuthenticated']);
+        const authServiceSpy = { isAuthenticated: jest.fn() };
 
         TestBed.configureTestingModule({
             imports: [HttpClientTestingModule],

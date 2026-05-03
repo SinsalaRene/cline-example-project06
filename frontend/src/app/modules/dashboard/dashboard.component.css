@@ -10,19 +10,20 @@
     align-items: center;
     margin-bottom: 24px;
     padding-bottom: 16px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .header-title h1 {
     font-size: 24px;
     font-weight: 600;
-    color: #212121;
+    color: var(--text-primary);
     margin: 0 0 4px 0;
+    letter-spacing: -0.02em;
 }
 
 .header-title p {
     font-size: 14px;
-    color: #757575;
+    color: var(--text-secondary);
     margin: 0;
 }
 
@@ -37,7 +38,7 @@
     align-items: center;
     justify-content: center;
     padding: 60px 20px;
-    color: #757575;
+    color: var(--text-secondary);
     gap: 16px;
 }
 

@@ -1,18 +1,57 @@
+/* ──────────────────────────────────────────────────────────────────
+   Login Component Styles
+   Following Angular Material Design principles
+   ────────────────────────────────────────────────────────────────── */
+
+/* ── Container & Background ─────────────────────────────────────── */
+
 .login-container {
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+    position: relative;
+    overflow: hidden;
 }
+
+/* Animated background overlay */
+.login-container::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+    animation: rotate 30s linear infinite;
+}
+
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ── Card ───────────────────────────────────────────────────────── */
 
 .login-card {
     width: 100%;
-    max-width: 420px;
-    padding: 2rem;
+    max-width: 440px;
+    padding: 2.5rem;
     background: #ffffff;
-    border-radius: 12px;
+    border-radius: 20px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+    position: relative;
+    z-index: 1;
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
+
+/* ── Header ─────────────────────────────────────────────────────── */
 
 .login-header {
     text-align: center;
@@ -20,16 +59,19 @@
 }
 
 .login-header h1 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #1a1a1a;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #0f172a;
     margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
 }
 
 .login-header p {
-    font-size: 0.875rem;
-    color: #666;
+    font-size: 0.9rem;
+    color: #475569;
 }
+
+/* ── Form ───────────────────────────────────────────────────────── */
 
 .login-form {
     display: flex;
@@ -41,50 +83,130 @@
     width: 100%;
 }
 
+/* ── Submit Button ──────────────────────────────────────────────── */
+
 .login-button {
     height: 48px;
     font-size: 1rem;
     font-weight: 600;
+    border-radius: 12px;
 }
 
 .spinner {
     margin-left: 8px;
 }
 
+/* ── Azure SSO Button ───────────────────────────────────────────── */
+
 .azure-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 10px;
     height: 48px;
-    border-color: #ddd;
+    border-color: #cbd5e1;
+    font-weight: 500;
+    border-radius: 12px;
 }
 
 .azure-btn mat-icon {
-    color: #0078d4;
+    color: #6366f1;
+    font-size: 20px;
 }
+
+/* ── Error Messages ─────────────────────────────────────────────── */
 
 .error-message {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px;
-    background-color: #ffebee;
-    border: 1px solid #ef5350;
-    border-radius: 4px;
-    color: #c62828;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 10px;
     font-size: 0.875rem;
+    font-weight: 500;
 }
 
 .error-message mat-icon {
     font-size: 20px;
     width: 20px;
     height: 20px;
+    flex-shrink: 0;
 }
+
+/* Auth errors (401, 403) */
+.error-message-auth {
+    background-color: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #dc2626;
+}
+
+/* Server errors (5xx) */
+.error-message-server {
+    background-color: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    color: #d97706;
+}
+
+/* Validation errors (400, 422) */
+.error-message-validation {
+    background-color: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    color: #4f46e5;
+}
+
+/* ── Footer ─────────────────────────────────────────────────────── */
 
 .login-footer {
     text-align: center;
     margin-top: 1.5rem;
-    font-size: 0.75rem;
-    color: #999;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.login-footer strong {
+    color: #6366f1;
+    font-weight: 600;
+}
+
+/* ── Material Form Field Overrides ──────────────────────────────── */
+
+.login-card .mat-mdc-form-field {
+    --mdc-outlined-text-field-input-text-color: #0f172a;
+    --mdc-outlined-text-field-label-text-color: #475569;
+    --mdc-outlined-text-field-input-text-placeholder: #64748b;
+    --mdc-outlined-text-field-outline-color: #cbd5e1;
+    --mdc-outlined-text-field-focused-outline-color: #6366f1;
+    --mdc-outlined-text-field-focus-label-text-color: #6366f1;
+}
+
+.login-card .mdc-label {
+    color: #475569 !important;
+}
+
+.login-card .mdc-text-field--outlined {
+    color: #0f172a !important;
+}
+
+.login-card input.mat-input-element {
+    color: #0f172a !important;
+    font-size: 14px;
+}
+
+.login-card input.mat-input-element::placeholder {
+    color: #64748b !important;
+    opacity: 1;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+    .login-card {
+        padding: 1.5rem;
+        margin: 16px;
+        border-radius: 16px;
+    }
+
+    .login-header h1 {
+        font-size: 1.4rem;
+    }
 }

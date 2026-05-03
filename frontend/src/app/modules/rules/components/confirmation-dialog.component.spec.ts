@@ -38,11 +38,11 @@ describe('ConfirmationDialogComponent', () => {
     });
 
     it('should have correct title', () => {
-        expect(component.title).toBe('Test Title');
+        expect(component.data.title).toBe('Test Title');
     });
 
     it('should have correct message', () => {
-        expect(component.message).toBe('Test Message');
+        expect(component.data.message).toBe('Test Message');
     });
 
     it('should close with true when confirm is called', () => {

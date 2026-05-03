@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { AuditService } from './audit.service';
-import { AuditEntry, AuditLevel } from '../models/audit.model';
+import { AuditEntry, AuditFilter, AuditListResponse, AuditSummary } from '../models/audit.model';
 
 describe('AuditService', () => {
     let service: AuditService;
@@ -25,128 +25,178 @@ describe('AuditService', () => {
         expect(service).toBeTruthy();
     });
 
-    describe('getAuditLog', () => {
-        it('should return audit log entries', () => {
-            const mockAuditLog: AuditEntry[] = [
-                {
-                    id: '1',
-                    level: AuditLevel.INFO,
-                    message: 'Test audit entry',
-                    timestamp: new Date(),
-                    user: 'admin',
-                    action: 'TEST'
-                }
-            ];
-
-            service.getAuditLog({ level: 'info' }).subscribe(entries => {
-                expect(entries.length).toBe(1);
-            });
-
-            const req = httpTestingController.expectOne('/api/audit?level=info');
-            expect(req.request.method).toBe('GET');
-            req.flush(mockAuditLog);
-        });
-
-        it('should support filtering by date range', () => {
-            const mockAuditLog: AuditEntry[] = [];
-
-            service.getAuditLog({
-                startDate: new Date('2024-01-01'),
-                endDate: new Date('2024-12-31')
-            }).subscribe(entries => {
-                expect(entries.length).toBe(0);
-            });
-
-            const req = httpTestingController.expectOne('/api/audit?start_date=2024-01-01&end_date=2024-12-31');
-            expect(req.request.method).toBe('GET');
-            req.flush(mockAuditLog);
-        });
-
-        it('should support pagination', () => {
-            const mockAuditLog: AuditEntry[] = [];
-
-            service.getAuditLog({
+    describe('getAuditLogs', () => {
+        it('should return paginated audit entries', () => {
+            const mockResponse: AuditListResponse = {
+                items: [
+                    {
+                        id: '1',
+                        action: 'CREATE',
+                        resourceId: 'res-1',
+                        resourceType: 'FIREWALL_RULE',
+                        severity: 'info',
+                        user: 'admin',
+                        displayName: 'Admin User',
+                        timestamp: '2024-01-01T10:00:00Z',
+                        success: true,
+                        description: 'Test audit entry'
+                    }
+                ],
+                total: 1,
                 page: 1,
-                pageSize: 20
-            }).subscribe(entries => {
-                expect(entries.length).toBe(0);
+                pageSize: 20,
+                totalPages: 1
+            };
+
+            service.getAuditLogs(1, 20).subscribe((response: AuditListResponse) => {
+                expect(response.items.length).toBe(1);
             });
 
-            const req = httpTestingController.expectOne('/api/audit?page=1&page_size=20');
+            const req = httpTestingController.expectOne('/api/v1/audit?page=1&page_size=20');
             expect(req.request.method).toBe('GET');
-            req.flush(mockAuditLog);
+            req.flush(mockResponse);
+        });
+
+        it('should support filtering by search query', () => {
+            const mockResponse: AuditListResponse = {
+                items: [],
+                total: 0,
+                page: 1,
+                pageSize: 20,
+                totalPages: 0
+            };
+
+            service.getAuditLogs(1, 20, { searchQuery: 'test' }).subscribe(() => { });
+
+            const req = httpTestingController.expectOne('/api/v1/audit?page=1&page_size=20&search=test');
+            expect(req.request.method).toBe('GET');
+            req.flush(mockResponse);
         });
     });
 
-    describe('getAuditEntryById', () => {
+    describe('getAuditEntry', () => {
         it('should return single audit entry', () => {
             const mockEntry: AuditEntry = {
                 id: '1',
-                level: AuditLevel.INFO,
-                message: 'Test entry',
-                timestamp: new Date(),
+                action: 'CREATE',
+                resourceId: 'res-1',
+                resourceType: 'FIREWALL_RULE',
+                severity: 'info',
                 user: 'admin',
-                action: 'TEST'
+                displayName: 'Admin User',
+                timestamp: '2024-01-01T10:00:00Z',
+                success: true,
+                description: 'Test entry'
             };
 
-            service.getAuditEntryById('1').subscribe(entry => {
+            service.getAuditEntry('1').subscribe((entry: AuditEntry) => {
                 expect(entry.id).toBe('1');
             });
 
-            const req = httpTestingController.expectOne('/api/audit/1');
+            const req = httpTestingController.expectOne('/api/v1/audit/1');
             expect(req.request.method).toBe('GET');
             req.flush(mockEntry);
         });
     });
 
-    describe('exportAuditLog', () => {
-        it('should export audit log as CSV', () => {
-            const mockExport = { format: 'csv', content: 'id,level,message\n1,INFO,test' };
+    describe('searchAuditLogs', () => {
+        it('should search audit logs', () => {
+            const mockEntries: AuditEntry[] = [];
 
-            service.exportAuditLog('csv').subscribe(result => {
-                expect(result.format).toBe('csv');
+            service.searchAuditLogs('test query').subscribe((entries: AuditEntry[]) => {
+                expect(entries.length).toBe(0);
             });
 
-            const req = httpTestingController.expectOne('/api/audit/export?format=csv');
+            const req = httpTestingController.expectOne('/api/v1/audit/search?query=test%20query&limit=50');
             expect(req.request.method).toBe('GET');
-            req.flush(mockExport);
+            req.flush(mockEntries);
         });
     });
 
-    describe('getAuditStats', () => {
-        it('should return audit statistics', () => {
-            const mockStats = {
-                totalEntries: 100,
-                infoCount: 50,
-                warningCount: 30,
-                errorCount: 20,
-                criticalCount: 0
+    describe('getAuditSummary', () => {
+        it('should return audit summary', () => {
+            const mockSummary: AuditSummary = {
+                totalCount: 100,
+                byAction: { CREATE: 40, UPDATE: 30, DELETE: 30 },
+                byResourceType: { FIREWALL_RULE: 50, ACCESS_RULE: 50 },
+                bySeverity: { info: 50, warning: 30, error: 20 },
+                bySuccess: { true: 90, false: 10 },
+                byUser: { admin: 60, user: 40 },
+                recentActivity: [],
+                topUsers: []
             };
 
-            service.getAuditStats().subscribe(stats => {
-                expect(stats.totalEntries).toBe(100);
+            service.getAuditSummary().subscribe((summary: AuditSummary) => {
+                expect(summary.totalCount).toBe(100);
             });
 
-            const req = httpTestingController.expectOne('/api/audit/stats');
+            const req = httpTestingController.expectOne('/api/v1/audit/summary');
             expect(req.request.method).toBe('GET');
-            req.flush(mockStats);
+            req.flush(mockSummary);
         });
     });
 
-    describe('getAuditTimeline', () => {
-        it('should return audit timeline', () => {
-            const mockTimeline = [
-                { date: '2024-01-01', count: 10 },
-                { date: '2024-01-02', count: 15 }
-            ];
+    describe('exportAuditLogs', () => {
+        it('should export audit logs as CSV', () => {
+            const mockBlob = new Blob(['id,action,resourceType'], { type: 'text/csv' });
 
-            service.getAuditTimeline().subscribe(timeline => {
-                expect(timeline.length).toBe(2);
+            service.exportAuditLogs({ format: 'csv', filters: {} as AuditFilter }).subscribe((result: Blob) => {
+                expect(result.type).toBe('text/csv');
             });
 
-            const req = httpTestingController.expectOne('/api/audit/timeline');
+            const req = httpTestingController.expectOne('/api/v1/audit/export/csv');
             expect(req.request.method).toBe('GET');
-            req.flush(mockTimeline);
+            req.flush(mockBlob);
+        });
+    });
+
+    describe('formatTimestamp', () => {
+        it('should format timestamp', () => {
+            const result = service.formatTimestamp('2024-01-01T10:00:00Z');
+            expect(result).toBeDefined();
+        });
+    });
+
+    describe('getSeverityDisplay', () => {
+        it('should return severity display info', () => {
+            const result = service.getSeverityDisplay('info');
+            expect(result.label).toBe('Info');
+        });
+    });
+
+    describe('getActionDisplay', () => {
+        it('should return action display text', () => {
+            const result = service.getActionDisplay('CREATE');
+            expect(result).toBe('Created');
+        });
+    });
+
+    describe('getRelativeTime', () => {
+        it('should return relative time string', () => {
+            const pastDate = new Date(Date.now() - 60000).toISOString();
+            const result = service.getRelativeTime(pastDate);
+            expect(result).toContain('m ago');
+        });
+    });
+
+    describe('filterAuditEntries', () => {
+        it('should filter entries by action', () => {
+            const entries: AuditEntry[] = [
+                {
+                    id: '1',
+                    action: 'CREATE',
+                    resourceId: 'res-1',
+                    resourceType: 'FIREWALL_RULE',
+                    severity: 'info',
+                    user: 'admin',
+                    displayName: 'Admin',
+                    timestamp: '2024-01-01T10:00:00Z',
+                    success: true,
+                    description: 'test'
+                }
+            ];
+            const filtered = service.filterAuditEntries(entries, { actionFilter: ['CREATE'] });
+            expect(filtered.length).toBe(1);
         });
     });
 });

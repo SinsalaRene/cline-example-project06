@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { AuthGuard, ReverseAuthGuard, PublicGuard, RoleGuard, PermissionGuard } from './core/guards/auth.guard';
+import { AuthGuard, PublicGuard } from './core/guards/auth.guard';
 import { LoginComponent } from './modules/auth/login/login.component';
 import { LogoutComponent } from './modules/auth/logout/logout.component';
 
@@ -41,20 +41,6 @@ const routes: Routes = [
     {
         path: 'logout',
         component: LogoutComponent
-    },
-    // Role-protected route example
-    {
-        path: 'admin',
-        canActivate: [RoleGuard],
-        data: { roles: ['admin'] },
-        loadChildren: () => import('./modules/admin/admin.module').then(m => m.AdminModule)
-    },
-    // Permission-protected route example
-    {
-        path: 'settings',
-        canActivate: [PermissionGuard],
-        data: { permission: 'settings:write' },
-        loadChildren: () => import('./modules/settings/settings.module').then(m => m.SettingsModule)
     },
     { path: '**', redirectTo: '/dashboard' }
 ];

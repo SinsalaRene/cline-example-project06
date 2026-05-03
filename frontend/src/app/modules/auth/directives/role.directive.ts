@@ -2,10 +2,8 @@ import {
     Directive,
     TemplateRef,
     ViewContainerRef,
-    Inject,
     OnInit,
-    OnChanges,
-    SimpleChanges,
+    Input,
 } from '@angular/core';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -20,14 +18,17 @@ import { AuthService } from '../../../core/services/auth.service';
  */
 @Directive({
     selector: '[appRole]',
+    standalone: true,
 })
 export class RoleDirective implements OnInit {
+    @Input() appRole: string | string[] = '';
+
     private hasAccess = false;
 
     constructor(
-        private templateRef: TemplateRef<any>,
+        private templateRef: TemplateRef<unknown>,
         private viewContainer: ViewContainerRef,
-        @Inject(AuthService) private authService: AuthService
+        private authService: AuthService
     ) { }
 
     ngOnInit(): void {
@@ -54,19 +55,12 @@ export class RoleDirective implements OnInit {
      * Get the required roles from the directive input.
      */
     private getRequiredRoles(): string[] {
-        const roleValue = this.templateRef;
-        const roles = this.templateRef['node'];
-
-        // Parse the role value from the directive input
-        const input = this.templateRef['_data']?.context?.roles ??
-            this.templateRef['_data']?.context?.appRole;
-
-        if (Array.isArray(input)) {
-            return input;
+        if (Array.isArray(this.appRole)) {
+            return this.appRole;
         }
 
-        if (typeof input === 'string') {
-            return [input];
+        if (typeof this.appRole === 'string') {
+            return [this.appRole];
         }
 
         return [];

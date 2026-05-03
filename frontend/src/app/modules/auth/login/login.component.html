@@ -1,38 +1,42 @@
 <div class="login-container">
   <div class="login-card mat-elevation-z8">
+    <!-- Header -->
     <div class="login-header">
       <h1>Microsoft Azure Firewall Manager</h1>
       <p>Sign in to your account</p>
     </div>
 
+    <!-- Login Form -->
     <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
-      <!-- Username/Email Field -->
-      <mat-form-field class="full-width" appearance="standard">
+
+      <!-- Email Field -->
+      <mat-form-field class="full-width">
         <mat-label>Email address</mat-label>
         <input
           matInput
-          formControlName="username"
           type="email"
-          placeholder="user@company.com"
           autocomplete="email"
+          placeholder="user@company.com"
+          formControlName="username"
         />
-        <mat-error *ngIf="username?.hasError('required')">
+        <mat-icon matPrefix>email</mat-icon>
+        <mat-error *ngIf="loginForm.get('username')?.hasError('required')">
           Email is required
         </mat-error>
-        <mat-error *ngIf="username?.hasError('email')">
+        <mat-error *ngIf="loginForm.get('username')?.hasError('email')">
           Please enter a valid email address
         </mat-error>
       </mat-form-field>
 
       <!-- Password Field -->
-      <mat-form-field class="full-width" appearance="standard">
+      <mat-form-field class="full-width">
         <mat-label>Password</mat-label>
         <input
           matInput
-          formControlName="password"
           [type]="showPassword ? 'text' : 'password'"
-          placeholder="Enter your password"
           autocomplete="current-password"
+          placeholder="Enter your password"
+          formControlName="password"
         />
         <button
           mat-icon-button
@@ -41,18 +45,22 @@
           (click)="togglePasswordVisibility()"
           [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
         >
-          <mat-icon>{{
-            showPassword ? "visibility_off" : "visibility"
-          }}</mat-icon>
+          <mat-icon>
+            {{ showPassword ? 'visibility_off' : 'visibility' }}
+          </mat-icon>
         </button>
-        <mat-error *ngIf="password?.hasError('required')">
+        <mat-error *ngIf="loginForm.get('password')?.hasError('required')">
           Password is required
         </mat-error>
       </mat-form-field>
 
-      <!-- Error Message -->
-      <div class="error-message" *ngIf="errorMessage">
-        <mat-icon>error_outline</mat-icon>
+      <!-- Error Message (conditional styling by type) -->
+      <div
+        class="error-message"
+        [class]="getErrorMessageClass()"
+        *ngIf="showError"
+      >
+        <mat-icon>{{ getErrorIcon() }}</mat-icon>
         <span>{{ errorMessage }}</span>
       </div>
 
@@ -85,6 +93,7 @@
       </button>
     </form>
 
+    <!-- Footer -->
     <div class="login-footer">
       <p>Powered by <strong>Microsoft Azure</strong></p>
     </div>

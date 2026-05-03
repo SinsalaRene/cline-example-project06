@@ -1,9 +1,13 @@
-import { ComponentFixture, TestBed, fakeAsync, tick, waitForAsync } from '@angular/core/testing';
-import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
-import { MatTableModule, MatPaginatorModule, MatSortModule } from '@angular/material';
-import { MatIconModule, MatButtonModule, MatInputModule } from '@angular/material';
-import { MatProgressBarModule, MatCheckboxModule } from '@angular/material';
+import { MatTableModule } from '@angular/material/table';
+import { MatPaginatorModule } from '@angular/material/paginator';
+import { MatSortModule } from '@angular/material/sort';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatInputModule } from '@angular/material/input';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { WorkloadsListComponent } from './workloads-list.component';
 import { WorkloadsService } from '../services/workloads.service';
@@ -15,14 +19,14 @@ describe('WorkloadsListComponent', () => {
 
     beforeEach(waitForAsync(() => {
         mockWorkloadsService = {
-            getWorkloads: () => { },
-            deleteWorkload: () => { },
+            getWorkloads: () => ({ subscribe: () => { } }),
+            deleteWorkload: () => ({ subscribe: () => { } }),
             refreshWorkloads: () => { }
         };
 
         TestBed.configureTestingModule({
-            declarations: [WorkloadsListComponent],
             imports: [
+                WorkloadsListComponent,
                 ReactiveFormsModule,
                 MatTableModule,
                 MatPaginatorModule,
@@ -30,8 +34,8 @@ describe('WorkloadsListComponent', () => {
                 MatIconModule,
                 MatButtonModule,
                 MatInputModule,
-                MatProgressBarModule,
-                MatCheckboxModule
+                MatCheckboxModule,
+                MatSnackBarModule
             ],
             providers: [{ provide: WorkloadsService, useValue: mockWorkloadsService }]
         }).compileComponents();
@@ -48,7 +52,7 @@ describe('WorkloadsListComponent', () => {
     });
 
     it('should have empty message when no workloads', () => {
-        component.workloads = [];
+        component.dataSource.data = [];
         fixture.detectChanges();
         const compiled = fixture.nativeElement as HTMLElement;
         expect(compiled.querySelector('.no-data-message')?.textContent).toContain('No workloads found');

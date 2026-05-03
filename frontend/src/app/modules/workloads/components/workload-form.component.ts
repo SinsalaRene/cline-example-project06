@@ -10,7 +10,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { WorkloadsService } from '../services/workloads.service';
 import { Workload, CreateWorkloadRequest, UpdateWorkloadRequest } from '../models/workload.model';
@@ -109,7 +109,6 @@ export class WorkloadFormComponent implements OnInit {
                 resource_group: formData.resource_group,
                 azure_resource_id: formData.azure_resource_id,
                 environment: formData.environment,
-                status: formData.status,
                 owner: formData.owner,
                 contact_email: formData.contact_email,
                 tags: formData.tags
@@ -159,7 +158,7 @@ export class WorkloadFormComponent implements OnInit {
 
     getTagsArray(): Array<{ key: string; value: string }> {
         const tags = this.workloadForm.get('tags')?.value || {};
-        return Object.entries(tags).map(([key, value]) => ({ key, value }));
+        return Object.entries(tags).map(([key, value]) => ({ key, value: String(value) }));
     }
 
     addTag(): { key: string; value: string } {
@@ -168,6 +167,12 @@ export class WorkloadFormComponent implements OnInit {
             // Already in tags
         });
         return tag;
+    }
+
+    addTagField(): void {
+        const tags = this.workloadForm.get('tags')?.value || {};
+        const newTags: Record<string, any> = { ...tags, '': '' };
+        this.workloadForm.get('tags')?.setValue(newTags);
     }
 
     removeTag(index: number): void {

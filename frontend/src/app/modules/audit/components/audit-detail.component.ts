@@ -259,7 +259,7 @@ interface AuditDetailData {
                                     </mat-panel-title>
                                 </mat-expansion-panel-header>
                                 <div class="detail-content">
-                                    <pre class="json-content">{{ formatValue(entry.details.responseBody) }}</pre>
+                                    <pre class="json-content">{{ formatValue(entry.details?.responseBody) }}</pre>
                                 </div>
                             </mat-expansion-panel>
 
