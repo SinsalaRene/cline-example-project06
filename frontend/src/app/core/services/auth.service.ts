@@ -21,23 +21,38 @@ export class AuthService {
     public userName = signal<string>('');
 
     constructor() {
-        const savedUser = localStorage.getItem('user');
-        if (savedUser) {
-            this.userSubject.next(JSON.parse(savedUser));
-            this.isLoggedIn.set(true);
-            const user = JSON.parse(savedUser);
-            this.userName.set(user.display_name);
+        const savedUserStr = localStorage.getItem('user');
+        if (savedUserStr && savedUserStr !== 'undefined' && savedUserStr !== 'null') {
+            try {
+                const savedUser = JSON.parse(savedUserStr);
+                this.userSubject.next(savedUser);
+                this.isLoggedIn.set(true);
+                this.userName.set(savedUser.display_name);
+            } catch (e) {
+                console.error('Invalid user data in localStorage', e);
+                localStorage.removeItem('user');
+                localStorage.removeItem('auth_token');
+            }
         }
     }
 
     login(username: string, password: string): Observable<any> {
         return this.http.post<any>('/api/v1/auth/login', { username, password }).pipe(
-            tap(response => {
-                localStorage.setItem('auth_token', response.token);
-                localStorage.setItem('user', JSON.stringify(response.user));
-                this.userSubject.next(response.user);
+            map(response => ({
+                token: response.access_token,
+                user: {
+                    object_id: 'dev-user',
+                    display_name: username,
+                    email: username,
+                    roles: ['user']
+                }
+            })),
+            tap(mapped => {
+                localStorage.setItem('auth_token', mapped.token);
+                localStorage.setItem('user', JSON.stringify(mapped.user));
+                this.userSubject.next(mapped.user);
                 this.isLoggedIn.set(true);
-                this.userName.set(response.user.display_name);
+                this.userName.set(mapped.user.display_name);
             })
         );
     }

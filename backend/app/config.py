@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30  # Short-lived access tokens (max 1440 per validator)
     refresh_token_expire_days: int = 7  # Refresh tokens valid for 7 days
+
+    # Local Development Authentication
+    dev_email: str = "dev@example.com"
+    dev_password: str = "devpass123"
     
     # Rate Limiting for Auth Endpoints
     auth_rate_limit_per_minute: int = 20  # Max 20 requests per minute per IP

@@ -35,9 +35,13 @@ import app.models.audit  # noqa: F401
 #   alembic upgrade head --url "$DATABASE_URL"
 #   alembic revision --autogenerate -m "Initial migration"
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # Configure logging
-if context.config.options.get("verbose"):
-    fileConfig(context.config.config_file_path)
+config = context.config
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
 
 # Get database URL from environment or alembic.ini
 # Environment variable takes precedence over alembic.ini
@@ -86,7 +90,7 @@ def run_migrations_online() -> None:
 
     engine = engine_from_config(
         config.get_section(config.config_ini_section),
-        prefix="config.",
+        prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 

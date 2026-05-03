@@ -31,6 +31,19 @@ alembic upgrade head
 
 # Start the server
 uvicorn app.main:app --reload
+
+### Dev Login Credentials
+- **Username**: `dev@example.com`
+- **Password**: `devpass123`
+
+**Test login**:
+```bash
+curl -X POST "http://localhost:8000/api/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"dev@example.com","password":"devpass123"}'
+```
+
+Frontend login uses `username` field (email format).
 ```
 
 ### API Documentation

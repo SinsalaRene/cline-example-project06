@@ -93,6 +93,8 @@ from app.schemas.user import (
 )
 
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
