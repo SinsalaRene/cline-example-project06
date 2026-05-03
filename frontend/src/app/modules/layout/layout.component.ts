@@ -1,4 +1,5 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, Inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+import { MatSidenav } from '@angular/material/sidenav';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter, takeUntil, startWith, map } from 'rxjs/operators';
@@ -20,6 +21,7 @@ import { ErrorNotificationComponent } from '../../shared/components/error-notifi
     selector: 'app-layout',
     templateUrl: './layout.component.html',
     styleUrls: ['./layout.component.css'],
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         CommonModule,
         RouterModule,
@@ -38,6 +40,9 @@ export class LayoutComponent implements OnInit, OnDestroy {
     // Responsive layout state
     isMobile = false;
     isSidenavCollapsed = false;
+    isSidenavOpen = false;
+
+    @ViewChild('sidenav') sidenav!: MatSidenav;
 
     // Page title observable
     title$: Observable<string>;
@@ -73,6 +78,16 @@ export class LayoutComponent implements OnInit, OnDestroy {
             this.cdr.markForCheck();
         });
 
+        // Listen for sidenav opened changes (for mobile toggle icon)
+        if (this.sidenav) {
+            this.sidenav.openedChange.pipe(
+                takeUntil(this.destroy$)
+            ).subscribe((opened) => {
+                this.isSidenavOpen = opened;
+                this.cdr.markForCheck();
+            });
+        }
+
         // Listen for auth errors
         this.authService.authError$.subscribe(() => {
             // Auth error was handled in the service
@@ -89,6 +104,13 @@ export class LayoutComponent implements OnInit, OnDestroy {
      */
     toggleSidenav(): void {
         this.isSidenavCollapsed = !this.isSidenavCollapsed;
+    }
+
+    /**
+     * Toggle mobile sidenav open/close.
+     */
+    toggleMobileSidenav(): void {
+        this.sidenav.toggle();
     }
 
     /**

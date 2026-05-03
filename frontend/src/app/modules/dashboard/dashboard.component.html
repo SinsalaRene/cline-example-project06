@@ -1,84 +1,81 @@
-<div class="dashboard-container" *ngIf="!isLoading">
+<div class="dashboard-container">
   <div class="dashboard-header">
     <div class="header-title">
       <h1>Dashboard</h1>
-      <p>Overview of your system metrics and activities</p>
+      <p>Overview of firewall rules, approvals, and recent activity</p>
     </div>
     <div class="header-actions">
       <button mat-stroked-button color="primary" (click)="refreshData()">
         <mat-icon>refresh</mat-icon>
         Refresh
       </button>
-      <button
-        mat-flat-button
-        color="primary"
-        (click)="navigateToAction(quickActions[0])"
-      >
-        <mat-icon>add</mat-icon>
-        New Entry
-      </button>
     </div>
   </div>
 
-  <div class="dashboard-content">
-    <!-- Metrics Section -->
-    <section>
-      <h2>Key Metrics</h2>
-      <div class="metrics-grid">
-        <app-metric-card
-          *ngFor="let stat of stats"
-          [stat]="stat"
-          [trendIconFn]="getTrendIcon.bind(this)"
-          [trendColorFn]="getTrendColor.bind(this)"
-        ></app-metric-card>
-      </div>
-    </section>
-
-    <!-- Charts Section -->
-    <section>
-      <h2>Analytics</h2>
-      <div class="charts-grid">
-        <div class="chart-panel">
-          <app-chart-widget
-            [chartData]="chartData"
-            [chartTitle]="'Revenue Overview'"
-            [chartType]="'line'"
-            [chartColor]="'#2196F3'"
-          >
-          </app-chart-widget>
+  @if (!isLoading) {
+    <div class="dashboard-content">
+      <!-- Metrics Section -->
+      <section>
+        <h2>Key Metrics</h2>
+        <div class="metrics-grid">
+          @for (stat of stats; track stat.id) {
+            <mat-card class="metric-card" [style.--card-color]="stat.color">
+              <mat-card-header>
+                <mat-icon mat-card-avatar [color]="stat.color">{{stat.icon}}</mat-icon>
+                <mat-card-title>{{stat.title}}</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="metric-value">
+                  <span class="value">{{stat.value}}</span>
+                  <span class="unit">{{stat.unit}}</span>
+                </div>
+                <p class="metric-description">{{stat.description}}</p>
+                <div class="metric-trend">
+                  <mat-icon [color]="getTrendColor(stat.trend)">{{getTrendIcon(stat.trend)}}</mat-icon>
+                  <span>{{stat.trendValue > 0 ? '+' : ''}}{{stat.trendValue}}%</span>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          }
         </div>
-        <div class="chart-panel">
-          <app-chart-widget
-            [chartData]="distributionData"
-            [chartTitle]="'Distribution'"
-            [chartType]="'doughnut'"
-          >
-          </app-chart-widget>
+      </section>
+
+      <!-- Recent Activity -->
+      <section>
+        <h2>Recent Activity</h2>
+        <mat-list class="activity-list" role="list">
+          @for (activity of activities; track activity.id) {
+            <mat-list-item role="listitem">
+              <mat-icon matListIcon [color]="getActivityIcon(activity.type)">{{getActivityIcon(activity.type)}}</mat-icon>
+              <div matListItemTitle>{{activity.message}}</div>
+              <div matListItemLine>
+                <span class="activity-source">{{activity.source}}</span>
+                <span class="activity-time">{{formatTimestamp(activity.timestamp)}}</span>
+              </div>
+            </mat-list-item>
+          } @empty {
+            <mat-list-item>No recent activity</mat-list-item>
+          }
+        </mat-list>
+      </section>
+
+      <!-- Quick Actions -->
+      <section>
+        <h2>Quick Actions</h2>
+        <div class="quick-actions-grid">
+          @for (action of quickActions; track action.id) {
+            <button mat-raised-button color="primary" (click)="navigateToAction(action)">
+              <mat-icon>{{action.icon}}</mat-icon>
+              {{action.label}}
+            </button>
+          }
         </div>
-      </div>
-    </section>
-
-    <!-- Quick Actions & Activity Feed Section -->
-    <section>
-      <div class="bottom-grid">
-        <app-quick-action-panel
-          [actions]="quickActions"
-          (actionClicked)="navigateToAction($event)"
-        >
-        </app-quick-action-panel>
-
-        <app-activity-feed
-          [activities]="activities"
-          [getActivityIcon]="getActivityIcon"
-          [formatTimestamp]="formatTimestamp.bind(this)"
-        >
-        </app-activity-feed>
-      </div>
-    </section>
-  </div>
-</div>
-
-<div class="loading-overlay" *ngIf="isLoading">
-  <mat-spinner></mat-spinner>
-  <p>Loading dashboard data...</p>
+      </section>
+    </div>
+  } @else {
+    <div class="loading-overlay">
+      <mat-spinner diameter="50"></mat-spinner>
+      <p>Loading dashboard data...</p>
+    </div>
+  }
 </div>

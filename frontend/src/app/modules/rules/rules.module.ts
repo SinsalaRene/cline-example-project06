@@ -1,60 +1,16 @@
 import { NgModule } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormsModule } from '@angular/forms';
-import { MatTableModule } from '@angular/material/table';
-import { MatPaginatorModule } from '@angular/material/paginator';
-import { MatSortModule } from '@angular/material/sort';
-import { MatInputModule } from '@angular/material/input';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatCardModule } from '@angular/material/card';
-import { MatTabsModule } from '@angular/material/tabs';
-import { MatDialogModule } from '@angular/material/dialog';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatExpansionModule } from '@angular/material/expansion';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatSnackBarModule } from '@angular/material/snack-bar';
-import { RouterModule } from '@angular/router';
-
+import { RouterModule, Routes } from '@angular/router';
 import { RulesListComponent } from './components/rules-list.component';
-import { RuleFormDialogComponent } from './components/rule-form-dialog.component';
-import { RuleDetailComponent } from './components/rule-detail.component';
-import { ConfirmationDialogComponent } from './components/confirmation-dialog.component';
 import { RulesService } from './services/rules.service';
 
+const routes: Routes = [
+    { path: '', component: RulesListComponent }
+];
+
 @NgModule({
-    declarations: [],
     imports: [
-        CommonModule,
-        ReactiveFormsModule,
-        FormsModule,
-        MatTableModule,
-        MatPaginatorModule,
-        MatSortModule,
-        MatInputModule,
-        MatFormFieldModule,
-        MatSelectModule,
-        MatButtonModule,
-        MatIconModule,
-        MatCardModule,
-        MatTabsModule,
-        MatDialogModule,
-        MatProgressSpinnerModule,
-        MatChipsModule,
-        MatExpansionModule,
-        MatCheckboxModule,
-        MatSnackBarModule,
-        RouterModule,
-        RulesListComponent,
-        RuleFormDialogComponent,
-        RuleDetailComponent,
-        ConfirmationDialogComponent
-    ],
-    exports: [
-        RouterModule
+        RouterModule.forChild(routes),
+        RulesListComponent
     ],
     providers: [RulesService]
 })

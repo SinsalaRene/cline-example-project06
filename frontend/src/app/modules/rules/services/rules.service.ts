@@ -54,7 +54,14 @@ export class RulesService {
     constructor(private http: HttpClient) { }
 
     // Get all rules (paginated)
-    getRules(page = 1, pageSize = 50, status?: string, workloadId?: string): Observable<PaginatedResponse<FirewallRule>> {
+    getRules(
+        page = 1,
+        pageSize = 50,
+        status?: string,
+        workloadId?: string,
+        search?: string,
+        sort = '-created_at'
+    ): Observable<PaginatedResponse<FirewallRule>> {
         let params = new HttpParams()
             .set('page', page.toString())
             .set('page_size', pageSize.toString());
@@ -65,6 +72,10 @@ export class RulesService {
         if (workloadId) {
             params = params.set('workload_id', workloadId);
         }
+        if (search) {
+            params = params.set('search', search);
+        }
+        params = params.set('sort', sort);
 
         return this.http.get<PaginatedResponse<FirewallRule>>(this.baseUrl, { params });
     }

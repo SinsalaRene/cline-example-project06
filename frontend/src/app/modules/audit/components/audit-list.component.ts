@@ -10,22 +10,22 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatCardModule } from '@angular/material/card';
-import { ApprovalsService } from '../services/approvals.service';
+import { AuditService } from '../services/audit.service';
 
-interface Approval {
+interface AuditEntry {
     id: string;
-    request_type: string;
+    timestamp: string;
+    user_id?: string;
+    action: string;
+    resource_type?: string;
     resource_id?: string;
-    requested_by: string;
-    status: string;
-    created_at: string;
-    updated_at?: string;
-    reviewer?: string;
-    comments?: string;
+    level: string;
+    message?: string;
+    ip_address?: string;
 }
 
 @Component({
-    selector: 'app-approvals-list',
+    selector: 'app-audit-list',
     standalone: true,
     imports: [
         CommonModule,
@@ -41,11 +41,11 @@ interface Approval {
         MatCardModule,
     ],
     template: `
-        <div class="approvals-list-container">
+        <div class="audit-list-container">
             <mat-card>
                 <mat-card-header>
                     <mat-card-title>
-                        <h1>Approval Requests</h1>
+                        <h1>Audit Log</h1>
                     </mat-card-title>
                 </mat-card-header>
 
@@ -53,8 +53,8 @@ interface Approval {
                     <!-- Search and Actions -->
                     <div class="toolbar">
                         <mat-form-field class="search-field">
-                            <mat-label>Search approvals...</mat-label>
-                            <input matInput (keyup)="applyFilter($event)" placeholder="Search by type, requester...">
+                            <mat-label>Search audit log...</mat-label>
+                            <input matInput (keyup)="applyFilter($event)" placeholder="Search by action, user, resource...">
                             <mat-icon matSuffix>search</mat-icon>
                         </mat-form-field>
                         <button mat-raised-button color="primary" (click)="refreshData()">
@@ -66,61 +66,69 @@ interface Approval {
                     @if (isLoading()) {
                         <div class="loading-container">
                             <mat-spinner diameter="50"></mat-spinner>
-                            <p>Loading approval requests...</p>
+                            <p>Loading audit entries...</p>
                         </div>
                     } @else {
-                        <!-- Approvals Table -->
+                        <!-- Audit Table -->
                         <div class="table-container">
-                            <table mat-table [dataSource]="dataSource" matSort class="approvals-table">
-                                <!-- Request Type Column -->
-                                <ng-container matColumnDef="request_type">
-                                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Request Type</th>
-                                    <td mat-cell *matCellDef="let approval">{{ approval.request_type }}</td>
+                            <table mat-table [dataSource]="dataSource" matSort class="audit-table">
+                                <!-- Timestamp Column -->
+                                <ng-container matColumnDef="timestamp">
+                                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Timestamp</th>
+                                    <td mat-cell *matCellDef="let entry">{{ entry.timestamp | date:'short' }}</td>
+                                </ng-container>
+
+                                <!-- Level Column -->
+                                <ng-container matColumnDef="level">
+                                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Level</th>
+                                    <td mat-cell *matCellDef="let entry">
+                                        <mat-chip 
+                                            [class.info-chip]="entry.level === 'info'" 
+                                            [class.warning-chip]="entry.level === 'warning'"
+                                            [class.error-chip]="entry.level === 'error'">
+                                            {{ entry.level }}
+                                        </mat-chip>
+                                    </td>
+                                </ng-container>
+
+                                <!-- Action Column -->
+                                <ng-container matColumnDef="action">
+                                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Action</th>
+                                    <td mat-cell *matCellDef="let entry">{{ entry.action }}</td>
+                                </ng-container>
+
+                                <!-- User Column -->
+                                <ng-container matColumnDef="user_id">
+                                    <th mat-header-cell *matHeaderCellDef>User</th>
+                                    <td mat-cell *matCellDef="let entry">{{ entry.user_id || 'system' }}</td>
+                                </ng-container>
+
+                                <!-- Resource Type Column -->
+                                <ng-container matColumnDef="resource_type">
+                                    <th mat-header-cell *matHeaderCellDef>Resource Type</th>
+                                    <td mat-cell *matCellDef="let entry">{{ entry.resource_type || '-' }}</td>
                                 </ng-container>
 
                                 <!-- Resource ID Column -->
                                 <ng-container matColumnDef="resource_id">
                                     <th mat-header-cell *matHeaderCellDef>Resource ID</th>
-                                    <td mat-cell *matCellDef="let approval" class="resource-id">
-                                        {{ approval.resource_id || 'N/A' }}
+                                    <td mat-cell *matCellDef="let entry" class="resource-id">
+                                        {{ entry.resource_id || '-' }}
                                     </td>
                                 </ng-container>
 
-                                <!-- Requested By Column -->
-                                <ng-container matColumnDef="requested_by">
-                                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Requested By</th>
-                                    <td mat-cell *matCellDef="let approval">{{ approval.requested_by }}</td>
-                                </ng-container>
-
-                                <!-- Status Column -->
-                                <ng-container matColumnDef="status">
-                                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
-                                    <td mat-cell *matCellDef="let approval">
-                                        <mat-chip 
-                                            [class.pending-chip]="approval.status === 'pending'" 
-                                            [class.approved-chip]="approval.status === 'approved'"
-                                            [class.rejected-chip]="approval.status === 'rejected'">
-                                            {{ approval.status }}
-                                        </mat-chip>
+                                <!-- Message Column -->
+                                <ng-container matColumnDef="message">
+                                    <th mat-header-cell *matHeaderCellDef>Message</th>
+                                    <td mat-cell *matCellDef="let entry" class="message-cell">
+                                        {{ entry.message || '-' }}
                                     </td>
                                 </ng-container>
 
-                                <!-- Reviewer Column -->
-                                <ng-container matColumnDef="reviewer">
-                                    <th mat-header-cell *matHeaderCellDef>Reviewer</th>
-                                    <td mat-cell *matCellDef="let approval">{{ approval.reviewer || '-' }}</td>
-                                </ng-container>
-
-                                <!-- Created At Column -->
-                                <ng-container matColumnDef="created_at">
-                                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Requested</th>
-                                    <td mat-cell *matCellDef="let approval">{{ approval.created_at | date:'short' }}</td>
-                                </ng-container>
-
-                                <!-- Updated At Column -->
-                                <ng-container matColumnDef="updated_at">
-                                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Last Updated</th>
-                                    <td mat-cell *matCellDef="let approval">{{ approval.updated_at | date:'short' }}</td>
+                                <!-- IP Address Column -->
+                                <ng-container matColumnDef="ip_address">
+                                    <th mat-header-cell *matHeaderCellDef>IP Address</th>
+                                    <td mat-cell *matCellDef="let entry">{{ entry.ip_address || '-' }}</td>
                                 </ng-container>
 
                                 <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
@@ -130,7 +138,7 @@ interface Approval {
 
                         <mat-paginator [pageSizeOptions]="[10, 25, 50, 100]" 
                                        showFirstLastButtons 
-                                       aria-label="Select page of approvals">
+                                       aria-label="Select page of audit entries">
                         </mat-paginator>
                     }
                 </mat-card-content>
@@ -138,9 +146,9 @@ interface Approval {
         </div>
     `,
     styles: [`
-        .approvals-list-container {
+        .audit-list-container {
             padding: 20px;
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
         }
 
@@ -175,7 +183,7 @@ interface Approval {
             margin-bottom: 16px;
         }
 
-        .approvals-table {
+        .audit-table {
             width: 100%;
         }
 
@@ -190,57 +198,65 @@ interface Approval {
         .resource-id {
             font-family: monospace;
             font-size: 12px;
-            max-width: 200px;
+            max-width: 150px;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .message-cell {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         mat-chip {
             font-size: 12px;
         }
 
-        .pending-chip {
+        .info-chip {
+            background-color: #2196f3 !important;
+            color: white !important;
+        }
+
+        .warning-chip {
             background-color: #ff9800 !important;
             color: white !important;
         }
 
-        .approved-chip {
-            background-color: #4caf50 !important;
-            color: white !important;
-        }
-
-        .rejected-chip {
+        .error-chip {
             background-color: #f44336 !important;
             color: white !important;
         }
     `]
 })
-export class ApprovalsListComponent implements OnInit {
+export class AuditListComponent implements OnInit {
     @ViewChild(MatPaginator) paginator!: MatPaginator;
     @ViewChild(MatSort) sort!: MatSort;
 
     displayedColumns: string[] = [
-        'request_type',
+        'timestamp',
+        'level',
+        'action',
+        'user_id',
+        'resource_type',
         'resource_id',
-        'requested_by',
-        'status',
-        'reviewer',
-        'created_at',
-        'updated_at'
+        'message',
+        'ip_address'
     ];
 
-    dataSource = new MatTableDataSource<Approval>();
+    dataSource = new MatTableDataSource<AuditEntry>();
     isLoading = signal(true);
 
-    constructor(private approvalsService: ApprovalsService) { }
+    constructor(private auditService: AuditService) { }
 
     ngOnInit(): void {
-        this.loadApprovals();
+        this.loadAuditLog();
     }
 
-    loadApprovals(): void {
+    loadAuditLog(): void {
         this.isLoading.set(true);
-        this.approvalsService.getApprovals().subscribe({
+        this.auditService.getAuditLogs(0).subscribe({
             next: (response: any) => {
                 this.dataSource.data = response.items || [];
                 this.dataSource.paginator = this.paginator;
@@ -248,7 +264,7 @@ export class ApprovalsListComponent implements OnInit {
                 this.isLoading.set(false);
             },
             error: (error: any) => {
-                console.error('Error loading approvals:', error);
+                console.error('Error loading audit log:', error);
                 this.isLoading.set(false);
             }
         });
@@ -264,6 +280,6 @@ export class ApprovalsListComponent implements OnInit {
     }
 
     refreshData(): void {
-        this.loadApprovals();
+        this.loadAuditLog();
     }
 }

@@ -26,23 +26,21 @@
  */
 
 import { NgModule } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { RouterModule, Routes } from '@angular/router';
 import { ApprovalsListComponent } from './components/approvals-list.component';
-import { ApprovalDetailComponent } from './components/approval-detail.component';
-import { BulkActionDialogComponent } from './components/bulk-action-dialog.component';
-import { ApprovalCommentsComponent } from './components/approval-comments.component';
 import { ApprovalsService } from './services/approvals.service';
+
+const routes: Routes = [
+    { path: '', component: ApprovalsListComponent }
+];
 
 /**
  * Shared exports for re-use across the application.
  */
 @NgModule({
     imports: [
-        CommonModule,
-        ApprovalsListComponent,
-        ApprovalDetailComponent,
-        BulkActionDialogComponent,
-        ApprovalCommentsComponent
+        RouterModule.forChild(routes),
+        ApprovalsListComponent
     ],
     providers: [
         ApprovalsService
@@ -52,10 +50,5 @@ export class ApprovalsModule { }
 
 export {
     ApprovalsListComponent,
-    ApprovalDetailComponent,
-    BulkActionDialogComponent,
-    ApprovalCommentsComponent,
     ApprovalsService
 };
-
-export * from './models/approval.model';

@@ -126,49 +126,49 @@
             </span>
           </button>
         </div>
-        <div
-          class="user-section"
-          *ngIf="authService.isLoggedIn$ | async as isLoggedIn"
-        >
-          <div class="user-avatar" *ngIf="isLoggedIn; else guestAvatar">
-            <mat-icon>person</mat-icon>
+        @if (authService.isLoggedIn$ | async; as isLoggedIn) {
+          <div class="user-section">
+            <div class="user-avatar">
+              <mat-icon>person</mat-icon>
+            </div>
+            <div class="user-info" [class.hidden]="isSidenavCollapsed">
+              <span class="user-name">User</span>
+              <span class="user-status">Online</span>
+            </div>
           </div>
-          <ng-template #guestAvatar>
+        } @else {
+          <div class="user-section">
             <div class="user-avatar guest">
               <mat-icon>person_outline</mat-icon>
             </div>
-          </ng-template>
-          <div class="user-info" [class.hidden]="isSidenavCollapsed">
-            <span class="user-name" *ngIf="isLoggedIn">User</span>
-            <span class="user-status">{{
-              isLoggedIn ? "Online" : "Guest"
-            }}</span>
           </div>
-        </div>
+        }
       </div>
     </mat-sidenav>
 
     <!-- Main Content Area -->
     <mat-sidenav-content class="main-content">
-      <!-- Top Header Bar -->
-      <header class="top-bar">
-        <div class="top-bar-left">
+    <!-- Top Header Bar -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        @if (isMobile) {
           <button
             mat-icon-button
             class="menu-toggle"
-            (click)="sidenav.toggle()"
-            *ngIf="isMobile"
-            [attr.aria-label]="sidenav.opened ? 'Close menu' : 'Open menu'"
+            (click)="toggleMobileSidenav()"
+            [attr.aria-label]="isSidenavOpen ? 'Close menu' : 'Open menu'"
           >
-            <mat-icon>menu</mat-icon>
+            <mat-icon>{{ isSidenavOpen ? 'close' : 'menu' }}</mat-icon>
           </button>
-          <h1 class="page-title">
-            <ng-container *ngIf="title$ | async as title; else defaultTitle">
-              {{ title }}
-            </ng-container>
-            <ng-template #defaultTitle> Firewall Manager </ng-template>
-          </h1>
-        </div>
+        }
+        <h1 class="page-title">
+          @if (title$ | async; as title) {
+            {{ title }}
+          } @else {
+            Firewall Manager
+          }
+        </h1>
+      </div>
         <div class="top-bar-right">
           <button
             mat-icon-button
@@ -192,29 +192,26 @@
             <mat-icon>more_vert</mat-icon>
           </button>
           <mat-menu #userMenu="matMenu">
-            <ng-container
-              *ngIf="authService.isLoggedIn$ | async; else guestMenu"
-            >
-              <button mat-menu-item (click)="navigateToProfile()">
-                <mat-icon>person</mat-icon>
-                <span>Profile</span>
-              </button>
-              <button mat-menu-item (click)="navigateToSettings()">
-                <mat-icon>settings</mat-icon>
-                <span>Settings</span>
-              </button>
-              <mat-divider></mat-divider>
-              <button mat-menu-item (click)="logout()">
-                <mat-icon>logout</mat-icon>
-                <span>Logout</span>
-              </button>
-            </ng-container>
-            <ng-template #guestMenu>
-              <button mat-menu-item (click)="navigateToLogin()">
-                <mat-icon>login</mat-icon>
-                <span>Login</span>
-              </button>
-            </ng-template>
+      @if (authService.isLoggedIn$ | async) {
+        <button mat-menu-item (click)="navigateToProfile()">
+          <mat-icon>person</mat-icon>
+          <span>Profile</span>
+        </button>
+        <button mat-menu-item (click)="navigateToSettings()">
+          <mat-icon>settings</mat-icon>
+          <span>Settings</span>
+        </button>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="logout()">
+          <mat-icon>logout</mat-icon>
+          <span>Logout</span>
+        </button>
+      } @else {
+        <button mat-menu-item (click)="navigateToLogin()">
+          <mat-icon>login</mat-icon>
+          <span>Login</span>
+        </button>
+      }
           </mat-menu>
         </div>
       </header>
