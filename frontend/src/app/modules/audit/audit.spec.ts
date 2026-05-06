@@ -691,7 +691,8 @@ describe('AuditDetailComponent', () => {
             success: true
         };
 
-        component.data = { entry: mockEntry };
+        component.entry = mockEntry;
+        component.isLoading = false;
         component.ngOnInit();
 
         expect(component.entry).toEqual(mockEntry);

@@ -46,7 +46,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatStepperModule } from '@angular/material/stepper';
 import { MatDividerModule } from '@angular/material/divider';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { AuditService } from '../services/audit.service';
 import {
     AuditEntry,
@@ -58,6 +58,35 @@ import {
 } from '../models/audit.model';
 import { AuditDetailComponent } from './audit-detail.component';
 
+/**
+ * AuditViewerComponent
+ *
+ * A standalone component that displays filtered, sortable audit log entries
+ * for a specific Azure resource (e.g., a firewall rule, access rule, etc.).
+ *
+ * It reads `resourceType` and `resourceId` from the route parameters,
+ * calls the backend with a `resourceIdFilter`, and shows matching
+ * audit entries in a paginated, sortable table.
+ *
+ * # Route
+ *
+ * `/audit/resource/:resourceType/:resourceId`
+ *
+ * # Features
+ *
+ * - Resource-specific audit filtering via route params
+ * - Date range picker defaulting to last 90 days
+ * - Full-text search across audit fields
+ * - Multi-criteria filtering (action, severity, user, result)
+ * - Sortable columns (MatSort)
+ * - Paginated display (MatPaginator)
+ * - Export to CSV / JSON
+ * - Back navigation to audit list
+ * - Loading, error, and empty states
+ *
+ * @module audit-viewer.component
+ * @author Audit Module Team
+ */
 @Component({
     selector: 'app-audit-viewer',
     standalone: true,
@@ -87,6 +116,17 @@ import { AuditDetailComponent } from './audit-detail.component';
     ],
     template: `
         <div class="audit-container" *ngIf="!isLoading">
+            <!-- Back button for resource-specific view -->
+            <div class="back-bar" *ngIf="routeResourceId">
+                <button mat-stroked-button color="primary" routerLink="/audit">
+                    <mat-icon>arrow_back</mat-icon>
+                    Back to Audit Log
+                </button>
+                <span class="resource-filter-badge">
+                    Filtering by: {{ getResourceTypeLabel(routeResourceType) }} / {{ routeResourceId }}
+                </span>
+            </div>
+
             <!-- Header -->
             <div class="header-section">
                 <div class="header-top">
@@ -461,6 +501,23 @@ import { AuditDetailComponent } from './audit-detail.component';
             gap: 16px;
         }
 
+        /* ── Back bar ──────────────────────────────────────────── */
+        .back-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .resource-filter-badge {
+            font-size: 13px;
+            color: #666;
+            background: #f5f5f5;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
         /* Header */
         .header-section { margin-bottom: 24px; }
         .header-top { display: flex; justify-content: space-between; align-items: flex-start; }
@@ -629,6 +686,10 @@ export class AuditViewerComponent implements OnInit {
     @ViewChild(MatPaginator) paginator!: MatPaginator;
     @ViewChild(MatSort) sort!: MatSort;
 
+    // Route parameters (public for template access)
+    routeResourceType: string | null = null;
+    routeResourceId: string | null = null;
+
     // Computed properties for UI
     get startIndex(): number { return (this.currentPage - 1) * this.pageSize; }
     get endIndex(): number { return Math.min(this.currentPage * this.pageSize, this.totalItems); }
@@ -648,6 +709,8 @@ export class AuditViewerComponent implements OnInit {
     }
 
     constructor(
+        private route: ActivatedRoute,
+        private router: Router,
         private auditService: AuditService,
         private dialog: MatDialog,
         private snackBar: MatSnackBar,
@@ -667,9 +730,24 @@ export class AuditViewerComponent implements OnInit {
     }
 
     ngOnInit(): void {
+        // Extract resourceType and resourceId from route params
+        this.routeResourceType = this.route.snapshot.paramMap.get('resourceType');
+        this.routeResourceId = this.route.snapshot.paramMap.get('resourceId');
+
+        if (this.routeResourceId) {
+            // Default to last 90 days
+            const ninetyDaysAgo = new Date();
+            ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+            this.filterForm.patchValue({ dateFrom: ninetyDaysAgo });
+        }
+
         this.loadAuditLogs();
     }
 
+    /**
+     * Load audit logs from API with current filters.
+     * When accessed via route params, filters by resource ID.
+     */
     loadAuditLogs(page: number = 1): void {
         this.isLoading = true;
 
@@ -684,7 +762,9 @@ export class AuditViewerComponent implements OnInit {
             resourceTypeFilter: filterValue.resourceTypeFilter,
             severityFilter: filterValue.severityFilter,
             userFilter: filterValue.userFilter,
-            successFilter: filterValue.successFilter !== '' ? filterValue.successFilter === 'true' : undefined
+            successFilter: filterValue.successFilter !== '' ? filterValue.successFilter === 'true' : undefined,
+            // Apply resource filter if present in route
+            resourceIdFilter: this.routeResourceId ?? undefined
         };
 
         this.auditService.getAuditLogs(page, this.pageSize, filters).subscribe({
@@ -729,6 +809,9 @@ export class AuditViewerComponent implements OnInit {
         });
     }
 
+    /**
+     * Apply current form filters and reset to first page.
+     */
     applyFilters(): void {
         this.currentPage = 1;
         if (this.paginator) {
@@ -737,15 +820,24 @@ export class AuditViewerComponent implements OnInit {
         this.loadAuditLogs(1);
     }
 
+    /**
+     * Refresh current page data.
+     */
     refreshData(): void {
         this.loadAuditLogs(this.currentPage);
     }
 
+    /**
+     * Handle page change event from MatPaginator.
+     */
     onPageChange(event: any): void {
         const newPage = event.pageIndex + 1;
         this.loadAuditLogs(newPage);
     }
 
+    /**
+     * Reset all filters to default values.
+     */
     resetFilters(): void {
         this.filterForm.reset({
             searchQuery: '',
@@ -762,6 +854,9 @@ export class AuditViewerComponent implements OnInit {
         this.loadAuditLogs(1);
     }
 
+    /**
+     * Open the AuditDetailComponent dialog for an entry.
+     */
     viewDetail(entry: AuditEntry): void {
         const dialogRef = this.dialog.open(AuditDetailComponent, {
             width: '800px',
@@ -770,6 +865,9 @@ export class AuditViewerComponent implements OnInit {
         });
     }
 
+    /**
+     * Export filtered results as CSV.
+     */
     exportAsCsv(): void {
         this.showExportMenu = false;
         const filters = this.getFilterCriteria();
@@ -784,6 +882,9 @@ export class AuditViewerComponent implements OnInit {
         });
     }
 
+    /**
+     * Export filtered results as JSON.
+     */
     exportAsJson(): void {
         this.showExportMenu = false;
         const filters = this.getFilterCriteria();
@@ -798,6 +899,9 @@ export class AuditViewerComponent implements OnInit {
         });
     }
 
+    /**
+     * Build the filter criteria object for exports.
+     */
     private getFilterCriteria(): AuditFilter {
         const filterValue = this.filterForm.value;
         return {
@@ -814,6 +918,9 @@ export class AuditViewerComponent implements OnInit {
         };
     }
 
+    /**
+     * Trigger a browser download for the given Blob.
+     */
     private downloadFile(blob: Blob, filename: string): void {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -823,6 +930,9 @@ export class AuditViewerComponent implements OnInit {
         window.URL.revokeObjectURL(url);
     }
 
+    /**
+     * Copy entry ID to clipboard.
+     */
     copyEntryId(id: string): void {
         navigator.clipboard?.writeText(id).then(() => {
             this.snackBar.open('Entry ID copied to clipboard.', 'Close', { duration: 2000 });
@@ -831,6 +941,20 @@ export class AuditViewerComponent implements OnInit {
         });
     }
 
+    /**
+     * Get the display label for a resource type.
+     *
+     * @param resourceType - The resource type string
+     * @returns Human-readable label
+     */
+    getResourceTypeLabel(resourceType: string | null): string {
+        if (!resourceType) return '';
+        return this.auditService.getResourceTypeDisplay(resourceType as AuditResourceType);
+    }
+
+    /**
+     * Toggle export menu visibility.
+     */
     toggleExportMenu(): void {
         this.showExportMenu = !this.showExportMenu;
     }

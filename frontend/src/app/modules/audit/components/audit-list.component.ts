@@ -58,6 +58,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatCardModule } from '@angular/material/card';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { Subject, debounceTime } from 'rxjs';
+import { Router, RouterModule, RouterLink, RouterLinkWithHref } from '@angular/router';
 
 import { AuditService } from '../services/audit.service';
 import {
@@ -116,6 +117,9 @@ interface ActiveFilterChip {
         MatChipsModule,
         MatCardModule,
         MatSnackBarModule,
+        RouterModule,
+        RouterLink,
+        RouterLinkWithHref,
     ],
     providers: [DatePipe],
     template: `
@@ -195,7 +199,7 @@ interface ActiveFilterChip {
                             [max]="toDate"
                             [matDatepicker]="fromPicker"
                             placeholder="From date"
-                            (dateChange)="onFromDateChange($event)"
+                            (dateChange)="onFromDateChange($event.value)"
                             [ngModel]="fromDate"
                             (ngModelChange)="onFromDateModelChange($event)"
                         />
@@ -210,7 +214,7 @@ interface ActiveFilterChip {
                             [min]="fromDate"
                             [matDatepicker]="toPicker"
                             placeholder="To date"
-                            (dateChange)="onToDateChange($event)"
+                            (dateChange)="onToDateChange($event.value)"
                             [ngModel]="toDate"
                             (ngModelChange)="onToDateModelChange($event)"
                         />
@@ -421,6 +425,7 @@ interface ActiveFilterChip {
                                 </td>
                             </ng-container>
 
+
                             <!-- Resource Type Column -->
                             <ng-container matColumnDef="resourceType">
                                 <th mat-header-cell *matHeaderCellDef>Resource Type</th>
@@ -461,6 +466,38 @@ interface ActiveFilterChip {
                                 </td>
                             </ng-container>
 
+                            <!-- Actions Column -->
+                            <ng-container matColumnDef="actions">
+                                <th mat-header-cell *matHeaderCellDef>Actions</th>
+                                <td mat-cell *matCellDef="let entry">
+                                    <div class="action-buttons">
+                                        <button
+                                            mat-icon-button
+                                            color="primary"
+                                            class="view-detail-btn"
+                                            [title]="'View Detail'"
+                                            [routerLink]="['/audit/detail', entry.id]"
+                                        >
+                                            <mat-icon>visibility</mat-icon>
+                                        </button>
+                                        <button
+                                            mat-icon-button
+                                            color="accent"
+                                            class="view-history-btn"
+                                            [title]="'View History'"
+                                            [routerLink]="[
+                                                '/audit/resource',
+                                                entry.resourceType,
+                                                entry.resourceId
+                                            ]"
+                                            [disabled]="!entry.resourceId"
+                                        >
+                                            <mat-icon>history</mat-icon>
+                                        </button>
+                                    </div>
+                                </td>
+                            </ng-container>
+
                             <tr
                                 mat-header-row
                                 *matHeaderRowDef="displayedColumns"
@@ -469,6 +506,7 @@ interface ActiveFilterChip {
                                 mat-row
                                 *matRowDef="let row; columns: displayedColumns"
                                 class="table-row"
+                                (click)="onRowClick(row)"
                             ></tr>
                         </table>
                     </div>
@@ -727,6 +765,21 @@ interface ActiveFilterChip {
             font-size: 12px;
         }
 
+        /* ── Action buttons ─────────────────────────────── */
+        .action-buttons {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+        }
+
+        .view-detail-btn {
+            color: #1976d2;
+        }
+
+        .view-history-btn {
+            color: #f44336;
+        }
+
         .action-icon {
             margin-right: 4px;
             font-size: 16px;
@@ -758,6 +811,7 @@ export class AuditListComponent implements OnInit, OnDestroy {
     private readonly auditService = inject(AuditService);
     private readonly snackBar = inject(MatSnackBar);
     private readonly cdr = inject(ChangeDetectorRef);
+    private readonly router = inject(Router);
 
     // ─── ViewChild refs ────────────────────────────────────────────────────
     @ViewChild('paginator') paginator!: MatPaginator;
@@ -789,6 +843,7 @@ export class AuditListComponent implements OnInit, OnDestroy {
         'description',
         'ipAddress',
         'relativeTime',
+        'actions',
     ];
 
     dataSource = new MatTableDataSource<AuditEntry>();
@@ -869,18 +924,22 @@ export class AuditListComponent implements OnInit, OnDestroy {
      * Called when the "From Date" picker value changes.
      * Emits a debounced filter-change event.
      */
-    onFromDateChange(event: Date): void {
-        this.fromDate = event;
-        this.emitFilterChange();
+    onFromDateChange(event: Date | null): void {
+        if (event) {
+            this.fromDate = event;
+            this.emitFilterChange();
+        }
     }
 
     /**
      * Called when the "To Date" picker value changes.
      * Emits a debounced filter-change event.
      */
-    onToDateChange(event: Date): void {
-        this.toDate = event;
-        this.emitFilterChange();
+    onToDateChange(event: Date | null): void {
+        if (event) {
+            this.toDate = event;
+            this.emitFilterChange();
+        }
     }
 
     /**
@@ -1412,6 +1471,35 @@ export class AuditListComponent implements OnInit, OnDestroy {
      * Multi-select option items for the severity filter dropdown.
      */
     severityOptions: FilterChip[] = [];
+
+    /**
+     * Navigate to the detail view for a specific audit entry.
+     * Called when clicking on a table row.
+     *
+     * @param entry - The audit entry being viewed
+     */
+    onRowClick(entry: AuditEntry): void {
+        if (entry.id) {
+            this.router.navigate(['/audit', 'detail', entry.id]);
+        }
+    }
+
+    /**
+     * Navigate to the resource-specific audit viewer for a given resource.
+     *
+     * @param resourceType - The type of the resource (e.g., 'FIREWALL_RULE')
+     * @param resourceId - The unique identifier of the resource
+     */
+    viewResourceHistory(resourceType: string, resourceId: string): void {
+        if (resourceType && resourceId) {
+            this.router.navigate([
+                '/audit',
+                'resource',
+                resourceType,
+                resourceId,
+            ]);
+        }
+    }
 
     /**
      * Active filter chips displayed below the filter bar.

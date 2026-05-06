@@ -92,6 +92,26 @@ No actual tests where done to test if this project can actually be run until now
   --port 8080
 ```
 
+> testing with unc model and same params -> Still slow 25 t/s Switch back to model and params above in between prompt 2
+```bash
+./build/bin/llama-server \
+  -m ../LLM-Models/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ3_M.gguf \
+  --alias "qwen3.6-35b" \
+  -c 163840 \
+  -ngl 999 \
+  --n-cpu-moe 2 \
+  --flash-attn on \
+  --cache-type-k q4_0 \
+  --cache-type-v q4_0 \
+  -b 256 \
+  -ub 512 \
+  -t 24 \
+  --jinja \
+  --no-mmap \
+  --host 0.0.0.0 \
+  --port 8080
+```
+
 
 ## Table of Contents
 
