@@ -69,6 +69,30 @@ No actual tests where done to test if this project can actually be run until now
   --port 8080
 ```
 
+> Noticed the difference in the -b and -ub values. Switched to way lower values and doubled the token gen speed.
+> Seems pretty stable
+> Not sure if or how much this reduces quality though.
+> Just noticed that this is the older module...
+```bash
+./build/bin/llama-server \
+  -m ../LLM-Models/Qwen3.6-35B-A3B-UD-IQ3_S.gguf \
+  --alias "qwen3.6-35b" \
+  -c 163840 \
+  -ngl 999 \
+  --n-cpu-moe 2 \
+  --flash-attn on \
+  --cache-type-k q4_0 \
+  --cache-type-v q4_0 \
+  -b 256 \
+  -ub 512 \
+  -t 24 \
+  --jinja \
+  --no-mmap \
+  --host 0.0.0.0 \
+  --port 8080
+```
+
+
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
