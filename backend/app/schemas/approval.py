@@ -216,3 +216,13 @@ class TimeoutResultResponse(BaseModel):
     expired_count: int
     escalated_count: int
     details: list[dict]
+
+
+# --- Aliases for backward compatibility ---
+# These aliases are used by schemas/__init__.py to import names that are 
+# equivalent to the actual schema names above.
+
+ApprovalRequestSchema = ApprovalRequestResponse
+ApprovalRequestSearch = ApprovalRequestCreate
+BulkApprovalRequest = BulkApproveRequest
+BulkApprovalResponse = BulkApproveResponse

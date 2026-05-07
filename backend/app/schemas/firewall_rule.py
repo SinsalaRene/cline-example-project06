@@ -153,3 +153,13 @@ class PaginatedResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+# --- Aliases for backward compatibility ---
+# These aliases are used by schemas/__init__.py to import names that are 
+# equivalent to the actual schema names above.
+
+FirewallRuleSchema = FirewallRuleResponse
+FirewallRuleSearch = FirewallRuleCreate
+FirewallRuleBulkCreate = FirewallRuleImport
+FirewallRuleBulkResponse = list[FirewallRuleResponse]

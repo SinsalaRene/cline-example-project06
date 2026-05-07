@@ -8,6 +8,7 @@ Modules:
 - firewall_rule: Workload and FirewallRule models
 - approval: ApprovalRequest, ApprovalStep, ApprovalWorkflowDefinition models
 - audit: AuditLog, User, UserRole models
+- network: VirtualNetwork, Subnet, NetworkSecurityGroup, NSGRule, ExternalNetworkDevice, NetworkConnection models
 """
 
 # Import Base from firewall_rule (it's the first module loaded)
@@ -38,6 +39,18 @@ from app.models.audit import (
     AuditAction,
 )
 
+# Import network models
+from app.models.network import (
+    VirtualNetwork,
+    Subnet,
+    NetworkSecurityGroup,
+    NSGRule,
+    ExternalNetworkDevice,
+    NetworkConnection,
+    DeviceType,
+    SyncStatus,
+)
+
 __all__ = [
     # Base
     "Base",
@@ -59,4 +72,13 @@ __all__ = [
     "User",
     "UserRole",
     "AuditAction",
+    # Network models
+    "VirtualNetwork",
+    "Subnet",
+    "NetworkSecurityGroup",
+    "NSGRule",
+    "ExternalNetworkDevice",
+    "NetworkConnection",
+    "DeviceType",
+    "SyncStatus",
 ]

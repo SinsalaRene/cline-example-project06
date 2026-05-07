@@ -172,12 +172,94 @@ pytest backend/tests/test_services.py -v
 | `old_value` | `Optional[dict]` | Serialized as JSON for storage |
 | `new_value` | `Optional[dict]` | Serialized as JSON for storage |
 
+## NetworkService
+
+**File**: `network_service.py`
+
+Manages network topology entities including Virtual Networks, Subnets, NSGs, NSG Rules,
+External Network Devices, and Network Connections.
+
+#### Methods
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `get_topology_graph()` | Get complete network topology with all nodes and connections | `db` |
+| `get_vnets()` | Get all virtual networks with optional filters | `db`, `location`, `resource_group` |
+| `get_vnet()` | Get virtual network by ID | `db`, `vnet_id` |
+| `create_vnet()` | Create new virtual network | `db`, `name`, `address_space`, `location`, `resource_group`, optional fields |
+| `update_vnet()` | Update existing virtual network | `db`, `vnet_id`, `**kwargs` |
+| `delete_vnet()` | Delete virtual network | `db`, `vnet_id` |
+| `get_subnets()` | Get subnets, optionally filtered by vnet_id | `db`, `vnet_id` |
+| `get_subnet()` | Get subnet by ID | `db`, `subnet_id` |
+| `create_subnet()` | Create new subnet | `db`, `name`, `address_prefix`, `vnet_id`, optional fields |
+| `delete_subnet()` | Delete subnet | `db`, `subnet_id` |
+| `get_nsgs()` | Get NSGs, optionally filtered by vnet_id | `db`, `vnet_id` |
+| `get_nsg()` | Get NSG by ID | `db`, `nsg_id` |
+| `create_nsg()` | Create new NSG | `db`, `name`, `location`, `vnet_id`, `resource_group`, optional fields |
+| `update_nsg()` | Update existing NSG | `db`, `nsg_id`, `**kwargs` |
+| `delete_nsg()` | Delete NSG | `db`, `nsg_id` |
+| `get_nsg_rules()` | Get all rules for an NSG, ordered by priority | `db`, `nsg_id` |
+| `create_nsg_rule()` | Create new NSG rule | `db`, `nsg_id`, `name`, `priority`, `direction`, `protocol`, `access`, required fields |
+| `update_nsg_rule()` | Update NSG rule | `db`, `rule_id`, `**kwargs` |
+| `delete_nsg_rule()` | Delete NSG rule | `db`, `rule_id` |
+| `reorder_nsg_rules()` | Reorder NSG rules by priority | `db`, `nsg_id`, `rule_ids` (ordered list) |
+| `get_external_devices()` | Get all external network devices | `db` |
+| `create_external_device()` | Create new external network device | `db`, `name`, `device_type`, optional fields |
+| `update_external_device()` | Update external network device | `db`, `device_id`, `**kwargs` |
+| `delete_external_device()` | Delete external network device | `db`, `device_id` |
+| `get_connections()` | Get connections with optional source/destination filters | `db`, `source_id`, `source_type`, `dest_id`, `dest_type` |
+| `create_connection()` | Create new network connection | `db`, `source_id`, `source_type`, `destination_id`, `destination_type`, `connection_type`, optional fields |
+| `delete_connection()` | Delete network connection | `db`, `connection_id` |
+| `analyze_impact()` | Analyze impact of NSG rule changes | `db`, `nsg_id`, `updated_rules` |
+| `sync_nsg_to_azure()` | Sync NSG configuration to Azure | `db`, `nsg_id` |
+
+#### Impact Analysis
+
+The `analyze_impact` method compares old vs new NSG rules and returns:
+- `affected_subnets`: Subnets reachable by changed rules
+- `affected_external_devices`: External devices reachable by changed rules
+- `before_rules`: Previous rules (serialized)
+- `after_rules`: Updated rules (serialized)
+
+This is critical for change management — operators can review which network segments
+and external devices will be affected before applying rule changes.
+
+### AzureSyncService
+
+**File**: `azure_sync_service.py`
+
+Manages synchronization between local network entities and Azure resources.
+
+#### Methods
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `sync_nsg_from_azure()` | Sync NSG rules from Azure | `db`, `nsg_id` |
+| `sync_nsg_to_azure()` | Push NSG rules to Azure | `db`, `nsg_id` |
+| `sync_vnet_from_azure()` | Sync VNet from Azure | `db`, `vnet_id` |
+| `sync_all_nsgs()` | Sync all pending NSGs | `db` |
+
+### NotificationService
+
+**File**: `notification_service.py`
+
+Handles notification delivery for events and alerts.
+
+#### Methods
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `send_notification()` | Send a notification | `recipient`, `subject`, `message` |
+
 ## Service Dependencies
 
 ```
 firewall_service.py → app.models.firewall_rule
 approval_service.py → app.models.approval
 audit_service.py → app.models.audit
+network_service.py → app.models.network
+azure_sync_service.py → app.models.network, app.integrations.azure_client
+notification_service.py → app.models.audit
 ```
 
 ## Changelog

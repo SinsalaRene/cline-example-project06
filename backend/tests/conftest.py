@@ -7,6 +7,9 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock, patch
 from uuid import UUID
+import tempfile
+import os
+import shutil
 
 # ============================================================
 # Rate limit cleanup
@@ -24,42 +27,78 @@ def clear_rate_limits():
 # ============================================================
 # Database & Session Fixtures
 # ============================================================
-@pytest.fixture
-def db_engine():
-    """Provide a test database engine (SQLite)."""
+# Module-scoped: each test module gets one temp directory + engine
+_module_db_dir = None
+_module_engine = None
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _module_db_setup():
+    """Set up module-scoped test database directory and engine.
+
+    Drops all tables first to handle repeated test runs on the same
+    SQLite file (SQLite auto-commits DDL so CREATE INDEX can fail
+    with "already exists" if tables were created by a previous run).
+    """
+    global _module_db_dir, _module_engine
     from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker, Session
-    from app.database import Base
+    from app.models import Base
 
-    engine = create_engine("sqlite:///./test_backend.db", connect_args={"check_same_thread": False})
-    Base.metadata.create_all(engine)
-    yield engine
-    Base.metadata.drop_all(engine)
-    engine.dispose()
+    _module_db_dir = tempfile.mkdtemp(prefix="test_db_")
+    db_path = os.path.join(_module_db_dir, "test.db")
+    _module_engine = create_engine(
+        f"sqlite:///{db_path}",
+        connect_args={"check_same_thread": False},
+        pool_pre_ping=True,
+    )
+    Base.metadata.drop_all(_module_engine)
+    Base.metadata.create_all(_module_engine)
+    yield
+    # Teardown
+    if _module_engine is not None:
+        try:
+            _module_engine.dispose()
+        except Exception:
+            pass
+        _module_engine = None
+    if _module_db_dir is not None:
+        try:
+            shutil.rmtree(_module_db_dir)
+        except Exception:
+            pass
+        _module_db_dir = None
 
 
 @pytest.fixture
-def db_session(db_engine):
-    """Provide a transactional database session."""
-    from app.database import Base
-    from sqlalchemy.orm import Session, sessionmaker
-    from app.config import Settings
+def db_session(_module_db_setup):
+    """Provide a transactional database session.
 
-    # Create tables for the test
-    Base.metadata.create_all(bind=db_engine)
+    Each test gets its own connection with an outer-level transaction.
+    SQLite auto-commits DDL so we use SAVEPOINTs carefully - only for
+    INSERT/UPDATE/DELETE, not for table-level operations.
+    """
+    from sqlalchemy.orm import sessionmaker
 
-    # Use a transaction
-    connection = db_engine.connect()
-    transaction = connection.begin()
-    session_factory = sessionmaker(bind=connection)
-    session = session_factory()
+    conn = _module_engine.connect()
+    txn = conn.begin()
+    Session = sessionmaker()
+    session = Session(bind=conn)
 
     yield session
 
-    # Rollback
-    session.close()
-    transaction.rollback()
-    connection.close()
+    # Cleanup - just rollback the outer transaction
+    try:
+        session.close()
+    except Exception:
+        pass
+    try:
+        txn.rollback()
+    except Exception:
+        pass
+    try:
+        conn.close()
+    except Exception:
+        pass
 
 
 @pytest.fixture
@@ -210,7 +249,7 @@ def firewall_rule_obj(db_session, workload_obj):
         status=FirewallRuleStatus.Active.value,
         workload_id=workload_obj.id,
         azure_resource_id="azure-resource-id-test",
-        created_by=user_obj().id if callable(user_obj) else None,
+        created_by=user_obj.id,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
     )
@@ -244,7 +283,7 @@ def firewall_rules_obj(db_session, workload_obj, user_obj):
             status=FirewallRuleStatus.Active.value,
             workload_id=workload_obj.id,
             azure_resource_id=f"azure-resource-id-test-{i}",
-            created_by=user_obj.id if hasattr(user_obj, 'id') else None,
+            created_by=user_obj.id,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )

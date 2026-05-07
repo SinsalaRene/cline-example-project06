@@ -80,6 +80,7 @@ from app.database import init_db
 from app.api.rules import router as rules_router
 from app.api.approvals import router as approvals_router
 from app.api.audit import router as audit_router
+from app.api.network import router as network_router
 from app.auth.router import router as auth_router
 from app.api.health import router as health_router
 from app.api.metrics import router as metrics_router
@@ -300,6 +301,7 @@ app.include_router(health_router)
 app.include_router(rules_router, prefix="/api/v1")
 app.include_router(approvals_router, prefix="/api/v1")
 app.include_router(audit_router, prefix="/api/v1")
+app.include_router(network_router, prefix="/api/v1")
 
 # ============================================================================
 # Metrics endpoint (standalone route outside /api/v1)

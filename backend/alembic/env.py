@@ -27,6 +27,7 @@ from app.models import Base
 import app.models.firewall_rule  # noqa: F401
 import app.models.approval  # noqa: F401
 import app.models.audit  # noqa: F401
+import app.models.network  # noqa: F401
 
 # Alembic uses 'script' as the environment variable to pass
 # configuration arguments. We use this to override the database URL.

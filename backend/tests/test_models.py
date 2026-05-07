@@ -41,12 +41,19 @@ from app.models.audit import (
 
 @pytest.fixture
 def session() -> Session:
-    """Create a test database session with in-memory SQLite."""
+    """Create a test database session with file-based SQLite.
+
+    Uses a per-test temporary file to avoid in-memory DB persistence
+    issues with NullPool.
+    """
+    import tempfile
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    db_path = tmp.name
     engine = create_engine(
-        "sqlite:///:memory:",
+        f"sqlite:///{db_path}",
         connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
     )
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db_session = SessionLocal()
@@ -55,6 +62,12 @@ def session() -> Session:
     finally:
         db_session.close()
         Base.metadata.drop_all(bind=engine)
+        engine.dispose()
+        import os
+        try:
+            os.unlink(db_path)
+        except Exception:
+            pass
 
 
 class TestWorkloadModel:

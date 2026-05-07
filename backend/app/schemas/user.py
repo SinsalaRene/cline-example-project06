@@ -119,3 +119,15 @@ class UpdateUserRequest(BaseModel):
     given_name: Optional[str] = None
     surname: Optional[str] = None
     is_active: Optional[bool] = None
+
+
+# --- Aliases for backward compatibility ---
+# These aliases are used by schemas/__init__.py to import names that are 
+# equivalent to the actual schema names above.
+
+UserLoginRequest = LoginRequest
+UserLoginResponse = LoginResponse
+TokenRefreshRequest = RefreshTokenRequest
+TokenRefreshResponse = RefreshTokenResponse
+UserRegistrationRequest = CreateUserRequest
+UserRegistrationResponse = UpdateUserRequest
