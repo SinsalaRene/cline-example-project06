@@ -15,6 +15,29 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { WorkloadsService } from '../services/workloads.service';
 import { Workload, CreateWorkloadRequest, UpdateWorkloadRequest } from '../models/workload.model';
 
+/**
+ * WorkloadFormComponent - Creates and edits workloads via reactive forms.
+ *
+ * @component
+ * @description A dual-mode form component that handles both creating new workloads
+ * and editing existing ones. Uses reactive form validation with required fields
+ * for name, workload_type, and environment.
+ *
+ * - When accessed via `/workloads/new`, operates in create mode.
+ * - When accessed via `/workloads/:id/edit`, loads existing data in edit mode.
+ *
+ * Form fields:
+ * - name (required), workload_type (required dropdown), environment (required dropdown)
+ * - description (optional textarea)
+ * - resource_group, azure_resource_id, owner, contact_email (optional text fields)
+ * - status (dropdown, defaults to 'active')
+ * - tags (key-value pairs)
+ *
+ * @example
+ * ```html
+ * <!-- Accessed via: /workloads/new or /workloads/:id/edit -->
+ * ```
+ */
 @Component({
     selector: 'app-workload-form',
     standalone: false,
@@ -22,16 +45,28 @@ import { Workload, CreateWorkloadRequest, UpdateWorkloadRequest } from '../model
     styleUrls: ['./workload-form.component.css']
 })
 export class WorkloadFormComponent implements OnInit {
+    /** The reactive form group for all workload fields. */
     workloadForm: FormGroup;
+    /** Indicates whether workload data is currently being loaded for editing. */
     isLoading = false;
+    /** Whether the form is in edit mode (true) or create mode (false). */
     isEditMode = false;
+    /** The workload ID being edited (empty string when creating). */
     workloadId: string = '';
+    /** Indicates whether a submit operation is in progress. */
     submitLoading = false;
 
+    /** Available workload type options populated from the service. */
     workloadTypes: Array<{ value: string; label: string; description: string }> = [];
+    /** Available environment options populated from the service. */
     environments: Array<{ value: string; label: string }> = [];
+    /** Available status options populated from the service. */
     statuses: Array<{ value: string; label: string }> = [];
 
+    /**
+     * Creates an instance of WorkloadFormComponent.
+     * Initializes the reactive form with validation rules.
+     */
     constructor(
         private fb: FormBuilder,
         private route: ActivatedRoute,
@@ -58,6 +93,9 @@ export class WorkloadFormComponent implements OnInit {
         this.statuses = this.workloadsService.getStatusOptions();
     }
 
+    /**
+     * Initializes the component by determining mode and loading data.
+     */
     ngOnInit(): void {
         this.workloadId = this.route.snapshot.paramMap.get('id') || '';
         this.isEditMode = !!this.workloadId;
@@ -67,6 +105,11 @@ export class WorkloadFormComponent implements OnInit {
         }
     }
 
+    /**
+     * Loads existing workload data into the form for editing.
+     *
+     * @param id - The workload identifier to load.
+     */
     loadWorkload(id: string): void {
         this.isLoading = true;
         this.workloadsService.getWorkload(id).subscribe({
@@ -92,6 +135,10 @@ export class WorkloadFormComponent implements OnInit {
         });
     }
 
+    /**
+     * Submits the form to create or update a workload.
+     * Marks all fields as touched to trigger validation errors.
+     */
     onSubmit(): void {
         if (this.workloadForm.invalid) {
             this.workloadForm.markAllAsTouched();
@@ -152,15 +199,28 @@ export class WorkloadFormComponent implements OnInit {
         }
     }
 
+    /**
+     * Cancels the form operation and navigates back to the workload list.
+     */
     onCancel(): void {
         this.router.navigate(['/workloads']);
     }
 
+    /**
+     * Converts the tags form value to an array for template display.
+     *
+     * @returns Array of { key, value } objects.
+     */
     getTagsArray(): Array<{ key: string; value: string }> {
         const tags = this.workloadForm.get('tags')?.value || {};
         return Object.entries(tags).map(([key, value]) => ({ key, value: String(value) }));
     }
 
+    /**
+     * Returns a new empty tag object for template use.
+     *
+     * @returns A { key: string; value: string } object.
+     */
     addTag(): { key: string; value: string } {
         const tag = { key: '', value: '' };
         this.workloadForm.get('tags')?.value && Object.entries(this.workloadForm.get('tags')?.value).forEach(([k, v]) => {
@@ -169,12 +229,20 @@ export class WorkloadFormComponent implements OnInit {
         return tag;
     }
 
+    /**
+     * Adds a new empty tag key-value pair to the form.
+     */
     addTagField(): void {
         const tags = this.workloadForm.get('tags')?.value || {};
         const newTags: Record<string, any> = { ...tags, '': '' };
         this.workloadForm.get('tags')?.setValue(newTags);
     }
 
+    /**
+     * Removes a tag at the specified index.
+     *
+     * @param index - The zero-based index of the tag to remove.
+     */
     removeTag(index: number): void {
         const tags = this.workloadForm.get('tags')?.value || {};
         const entries = Object.entries(tags);

@@ -1,3 +1,14 @@
+/**
+ * WorkloadsModule - Manages the workload entities in the Azure Firewall Management system.
+ *
+ * This module provides full CRUD functionality for workloads including:
+ * - Listing workloads with pagination, sorting, and search
+ * - Viewing workload details with associated firewall rules
+ * - Creating and editing workloads via reactive forms
+ * - Deleting workloads with confirmation dialogs
+ *
+ * @module workloads
+ */
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule } from '@angular/forms';
@@ -23,8 +34,21 @@ import { WorkloadsListComponent } from './components/workloads-list.component';
 import { WorkloadDetailComponent } from './components/workload-detail.component';
 import { WorkloadFormComponent } from './components/workload-form.component';
 import { ConfirmationDialogComponent } from './components/confirmation-dialog.component';
+import { workloadsRoutes } from './workloads.routing';
 
+/**
+ * WorkloadsModule - Provides full CRUD functionality for workload management.
+ *
+ * Declares all workload-related components and configures routes for:
+ * - Listing workloads (`workloads`)
+ * - Viewing workload details (`workloads/:id`)
+ * - Creating new workloads (`workloads/new`)
+ * - Editing existing workloads (`workloads/:id/edit`)
+ */
 @NgModule({
+    /**
+     * Components declared by this module, making them available to any module that imports this one.
+     */
     declarations: [
         WorkloadsListComponent,
         WorkloadDetailComponent,
@@ -52,7 +76,7 @@ import { ConfirmationDialogComponent } from './components/confirmation-dialog.co
         MatExpansionModule,
         MatChipsModule,
         MatMenuModule,
-        RouterModule
+        RouterModule.forChild(workloadsRoutes)
     ]
 })
 export class WorkloadsModule { }

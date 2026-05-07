@@ -1,5 +1,9 @@
 /**
  * Workload model representing a workload entity in the firewall management system.
+ *
+ * @interface Workload
+ * @description Represents a workload (e.g., Azure VM, App Service, Container) that is managed
+ * by the firewall rule system. Each workload can have associated firewall rules for traffic control.
  */
 export interface Workload {
     id: string;
@@ -18,6 +22,13 @@ export interface Workload {
     rule_count?: number;
 }
 
+/**
+ * Request payload for creating a new workload.
+ *
+ * @interface CreateWorkloadRequest
+ * @description All fields except `name` and `environment` are optional. The `name` must be unique
+ * across the system and `environment` determines the deployment tier (dev/staging/prod).
+ */
 export interface CreateWorkloadRequest {
     name: string;
     description?: string;
@@ -30,6 +41,12 @@ export interface CreateWorkloadRequest {
     tags?: Record<string, string>;
 }
 
+/**
+ * Request payload for updating an existing workload.
+ *
+ * @interface UpdateWorkloadRequest
+ * @description All fields are optional. Only provided fields will be updated on the server.
+ */
 export interface UpdateWorkloadRequest {
     name?: string;
     description?: string;
