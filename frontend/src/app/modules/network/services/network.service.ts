@@ -464,6 +464,22 @@ export class NetworkService {
         return this.http.put<void>(`${this.baseUrl}/nsgs/${nsgId}/rules/reorder`, ruleOrder);
     }
 
+    /**
+     * Sync an NSG configuration to Azure.
+     *
+     * Triggers a synchronization of the local NSG configuration with
+     * the corresponding Azure NSG resource. Updates the sync status
+     * on the backend after successful sync.
+     *
+     * @param nsgId - The NSG ID to sync.
+     * @returns Observable confirming sync was triggered.
+     */
+    syncNsgToAzure(nsgId: string): Observable<{ synced: boolean }> {
+        return this.http.post<any>(`${this.baseUrl}/nsgs/${nsgId}/sync`, {}).pipe(
+            map(response => response.sync || { synced: true })
+        );
+    }
+
     // ==========================================================================
     // External Network Devices
     // ==========================================================================

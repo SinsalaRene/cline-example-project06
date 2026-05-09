@@ -8,6 +8,9 @@
  * This component lazy-loads either the NetworkTreeComponent or
  * NetworkGraphComponent based on the user's selected view mode.
  *
+ * When an NSG node is clicked in graph view, the NSG detail panel is
+ * displayed as an overlay/side panel with inline rule editing capabilities.
+ *
  * @module topology-container-component
  * @author Network Module Team
  */
@@ -28,6 +31,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { FormsModule } from '@angular/forms';
 import { NetworkTreeComponent } from '../network-tree/network-tree.component';
 import { NetworkGraphComponent } from '../network-graph/network-graph.component';
+import { NsgDetailPanelComponent } from '../nsg-detail-panel/nsg-detail-panel.component';
 
 /**
  * Supported view modes for the topology container.
@@ -39,6 +43,8 @@ export type ViewMode = 'tree' | 'graph';
  *
  * Provides view mode toggle, search/filter, and delegates rendering
  * to either the tree or graph child component.
+ *
+ * Also manages the NSG detail panel overlay when an NSG node is clicked.
  *
  * @selector app-topology-container
  * @standalone
@@ -59,7 +65,8 @@ export type ViewMode = 'tree' | 'graph';
         MatInputModule,
         MatFormFieldModule,
         NetworkTreeComponent,
-        NetworkGraphComponent
+        NetworkGraphComponent,
+        NsgDetailPanelComponent
     ],
     standalone: true
 })
@@ -90,6 +97,12 @@ export class TopologyContainerComponent implements OnInit, OnDestroy {
 
     /** Count of nodes in the current topology. */
     public nodeCount = 0;
+
+    /** Whether the NSG detail panel is visible. */
+    public showNsgDetail = false;
+
+    /** The NSG ID currently being viewed in the detail panel. */
+    public selectedNsgId: string | null = null;
 
     /**
      * Creates a new TopologyContainerComponent.
@@ -179,18 +192,45 @@ export class TopologyContainerComponent implements OnInit, OnDestroy {
     /**
      * Handle node selected events from graph component.
      *
+     * When an NSG node is selected, loads the NSG details and shows the detail panel.
+     *
      * @param node - The selected topology node.
      */
     onNodeSelected(node: TopologyNode): void {
-        console.log('Node selected:', node);
+        if (node.type === 'nsg') {
+            this.loadNsgDetails(node);
+        }
     }
 
     /**
      * Handle node double-click events from graph component.
      *
+     * When an NSG node is double-clicked, loads the NSG details and shows the detail panel.
+     *
      * @param node - The double-clicked topology node.
      */
     onNodeDblClick(node: TopologyNode): void {
-        console.log('Node double-clicked:', node);
+        if (node.type === 'nsg') {
+            this.loadNsgDetails(node);
+        }
+    }
+
+    /**
+     * Load NSG details for a given topology node.
+     * The NsgDetailPanelComponent loads the NSG data internally.
+     *
+     * @param node - The NSG topology node.
+     */
+    loadNsgDetails(node: TopologyNode): void {
+        this.selectedNsgId = node.id;
+        this.showNsgDetail = true;
+    }
+
+    /**
+     * Close the NSG detail panel.
+     */
+    closeNsgDetail(): void {
+        this.showNsgDetail = false;
+        this.selectedNsgId = null;
     }
 }

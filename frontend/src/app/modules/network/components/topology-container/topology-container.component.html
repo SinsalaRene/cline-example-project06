@@ -144,4 +144,13 @@
             />
         </ng-container>
     </div>
+
+    <!-- NSG Detail Panel Overlay -->
+    <div *ngIf="showNsgDetail && selectedNsgId" class="nsg-detail-overlay">
+        <app-nsg-detail-panel
+            [nsgId]="selectedNsgId"
+            [isOpen]="showNsgDetail"
+            (panelClosed)="closeNsgDetail()"
+        />
+    </div>
 </mat-card>

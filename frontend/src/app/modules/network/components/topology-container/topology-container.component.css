@@ -124,3 +124,20 @@
     min-height: 400px;
     overflow: hidden;
 }
+
+/* NSG detail panel overlay */
+.nsg-detail-overlay {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 600px;
+    z-index: 1000;
+    background: white;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+}
+
+.dark-theme .nsg-detail-overlay {
+    background: #1e1e1e;
+}
