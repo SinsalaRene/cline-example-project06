@@ -1,0 +1,111 @@
+/**
+ * Network Graph Component Styles
+ */
+
+.graph-container {
+    position: relative;
+    width: 100%;
+    height: 600px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #fafafa;
+}
+
+.graph-toolbar {
+    padding: 8px 12px;
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.svg-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 500px;
+    overflow: auto;
+}
+
+.svg-wrapper svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    user-select: none;
+    touch-action: none;
+}
+
+.detail-panel {
+    position: absolute;
+    top: 60px;
+    right: 10px;
+    width: 280px;
+    z-index: 100;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 12px;
+}
+
+.detail-panel mat-card {
+    margin: 0;
+}
+
+.context-menu {
+    position: fixed;
+    z-index: 1000;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    min-width: 150px;
+    padding: 4px 0;
+}
+
+.context-menu button {
+    padding: 8px 16px !important;
+    min-width: auto !important;
+}
+
+.context-menu button mat-icon {
+    margin-right: 8px;
+}
+
+.context-menu button[color="warn"] mat-icon {
+    color: #f44336;
+}
+
+/* Node hover effects */
+svg [data-node-id]:hover {
+    filter: brightness(1.1);
+    cursor: pointer;
+}
+
+svg [data-node-id]:hover .node-shape {
+    stroke-width: 3;
+}
+
+/* Zoom animation */
+.svg-wrapper.zoomed svg {
+    transition: transform 0.1s ease-out;
+}
+
+/* Legend styling */
+.legend-group {
+    font-family: 'Roboto', 'Helvetica', sans-serif;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .graph-container {
+        height: 400px;
+    }
+
+    .detail-panel {
+        position: relative;
+        top: auto;
+        right: auto;
+        width: 100%;
+        margin-top: 8px;
+    }
+}

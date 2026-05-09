@@ -31,6 +31,11 @@ const routes: Routes = [
         canActivate: [AuthGuard],
         loadChildren: () => import('./modules/workloads/workloads.module').then(m => m.WorkloadsModule)
     },
+    {
+        path: 'network',
+        canActivate: [AuthGuard],
+        loadChildren: () => import('./modules/network/network.module').then(m => m.NetworkModule)
+    },
     // Public routes (accessible when not logged in)
     {
         path: 'login',

@@ -1,0 +1,133 @@
+
+<!-- Search and filter bar -->
+<div class="tree-controls" fxLayout="row" fxLayoutGap="16px" fxLayoutAlign="start center">
+    <!-- Search input -->
+    <mat-form-field subscriptSizing="legacy" class="search-field">
+        <mat-icon matPrefix>search</mat-icon>
+        <input matInput
+               type="search"
+               placeholder="Search nodes..."
+               [(ngModel)]="searchQuery"
+               (ngModelChange)="onSearchInput()">
+        <button matSuffix mat-icon-button *ngIf="searchQuery" (click)="searchQuery=''; onSearchInput()">
+            <mat-icon>close</mat-icon>
+        </button>
+    </mat-form-field>
+
+    <!-- Type filter -->
+    <mat-form-field subscriptSizing="legacy" class="filter-field">
+        <mat-label>Type</mat-label>
+        <mat-select [(ngModel)]="filterType" (ngModelChange)="onSearchInput()">
+            <mat-option value="all">All Types</mat-option>
+            <mat-option value="virtual_network">Virtual Network</mat-option>
+            <mat-option value="subnet">Subnet</mat-option>
+            <mat-option value="nsg">NSG</mat-option>
+            <mat-option value="nsg_rule">NSG Rule</mat-option>
+            <mat-option value="external_device">External Device</mat-option>
+        </mat-select>
+    </mat-form-field>
+
+    <!-- Location filter -->
+    <mat-form-field subscriptSizing="legacy" class="filter-field">
+        <mat-icon matPrefix>location_on</mat-icon>
+        <input matInput
+               type="search"
+               placeholder="Location..."
+               [(ngModel)]="filterLocation"
+               (ngModelChange)="onSearchInput()">
+    </mat-form-field>
+
+    <!-- Actions -->
+    <div fxLayout="row" fxLayoutGap="8px">
+        <button mat-button (click)="toggleExpandAll()">
+            <mat-icon>{{ expandedFlatNodes.length > 0 && expandedFlatNodes[0].expanded !== false ? 'collapse_all' : 'expand_all' }}</mat-icon>
+            {{ expandedFlatNodes.length > 0 && expandedFlatNodes[0].expanded !== false ? 'Collapse All' : 'Expand All' }}
+        </button>
+    </div>
+
+    <!-- Node count -->
+    <mat-chip [class.highlighted]="isFiltering" color="primary" variant="outline">
+        {{ filteredNodeCount }} node{{ filteredNodeCount !== 1 ? 's' : '' }}
+    </mat-chip>
+</div>
+
+<!-- Context menu for right-click actions -->
+<ng-template #contextMenu>
+    <mat-menu>
+        <button mat-menu-item (click)="onContextMenuAction('edit')">
+            <mat-icon>edit</mat-icon>
+            <span>Edit</span>
+        </button>
+        <button mat-menu-item (click)="onContextMenuAction('create-subnet')">
+            <mat-icon>add_circle</mat-icon>
+            <span>New Subnet</span>
+        </button>
+        <button mat-menu-item (click)="onContextMenuAction('create-nsg')">
+            <mat-icon>security</mat-icon>
+            <span>New NSG</span>
+        </button>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="onContextMenuAction('delete')" color="warn">
+            <mat-icon>delete</mat-icon>
+            <span>Delete</span>
+        </button>
+    </mat-menu>
+</ng-template>
+
+<!-- Tree view -->
+<mat-tree [dataSource]="expandedFlatNodes" class="network-tree">
+    <!-- Tree node template -->
+    <mat-tree-node *ngFor="let node of expandedFlatNodes; trackBy: trackByFn"
+                   [matTreeNodeIndent]="16"
+                   [class.search-highlight]="searchQuery && node.label.toLowerCase().includes(searchQuery.toLowerCase())"
+                   [class.type-filtered]="filterType !== 'all' && node.type !== filterType && !isFiltering"
+                   (contextmenu)="onNodeContextMenu($event, node)"
+                   (click)="onNodeClick(node)"
+                   (dblclick)="onNodeDblClick(node)"
+                   role="treeitem"
+                   [attr.aria-label]="node.label"
+                   [attr.aria-level]="node.level + 1"
+                   [attr.aria-expanded]="node.expandable">
+        <div class="tree-node-row">
+            <!-- Expand/collapse toggle (only for expandable nodes) -->
+            <button *ngIf="node.expandable"
+                    mat-icon-button
+                    [matTreeNodeToggle]=""
+                    [attr.aria-label]="'Toggle ' + node.label"
+                    class="toggle-btn">
+                <mat-icon>{{ node.expanded ? 'expand_more' : 'chevron_right' }}</mat-icon>
+            </button>
+
+            <!-- Non-expandable spacer -->
+            <div *ngIf="!node.expandable" class="spacer"></div>
+
+            <!-- Node type chip -->
+            <mat-chip [color]="_getNodeTypeColor(node.type)" variant="outlined">
+                {{ getNodeTypeLabel(node.type) }}
+            </mat-chip>
+
+            <!-- Node label -->
+            <span class="node-label" [innerHTML]="node.label">
+                <!-- Search highlight handled via CSS class -->
+            </span>
+
+            <!-- Node actions (only for non-expandable leaf nodes) -->
+            <div class="node-actions" *ngIf="!node.expandable" fxLayout="row" fxLayoutGap="4px">
+                <button mat-icon-button matTooltip="Edit" (click)="onNodeClick(node); $event.stopPropagation()">
+                    <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button matTooltip="Delete" color="warn" (click)="nodeAction.emit({ nodeId: (node.data as any).id, action: 'delete' }); $event.stopPropagation()">
+                    <mat-icon>delete</mat-icon>
+                </button>
+            </div>
+        </div>
+    </mat-tree-node>
+
+    <!-- Placeholder when no data -->
+    <mat-tree-node *ngIf="expandedFlatNodes.length === 0" role="treeitem">
+        <div class="tree-empty">
+            <mat-icon>cloud_off</mat-icon>
+            <span>No topology data available</span>
+        </div>
+    </mat-tree-node>
+</mat-tree>

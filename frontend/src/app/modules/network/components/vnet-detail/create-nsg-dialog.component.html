@@ -1,0 +1,23 @@
+<!-- Create NSG Dialog Template -->
+<h2 mat-dialog-title>Create Network Security Group</h2>
+<form (ngSubmit)="onSubmit()">
+    <mat-dialog-content>
+        <mat-form-field appearance="outline" class="full-width">
+            <mat-label>NSG Name</mat-label>
+            <input matInput [(ngModel)]="nsgName" name="nsgName" required placeholder="e.g., nsg-web" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Resource Group</mat-label>
+            <input matInput [(ngModel)]="resourceGroup" name="resourceGroup" placeholder="e.g., rg-production" />
+        </mat-form-field>
+        <p *ngIf="vnet" class="dialog-info">
+            Creating NSG for: <strong>{{ vnet.name }}</strong>
+        </p>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+        <button mat-button (click)="onCancel()">Cancel</button>
+        <button mat-flat-button color="accent" type="submit" [disabled]="!nsgName">
+            Create
+        </button>
+    </mat-dialog-actions>
+</form>

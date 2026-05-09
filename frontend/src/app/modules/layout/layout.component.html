@@ -102,6 +102,16 @@
             <mat-icon>cloud</mat-icon>
             <span class="nav-label">Workloads</span>
           </a>
+          <a
+            mat-row-link
+            routerLink="/network"
+            routerLinkActive="active"
+            class="nav-item"
+            [class.hidden]="isSidenavCollapsed"
+          >
+            <mat-icon>hub</mat-icon>
+            <span class="nav-label">Network</span>
+          </a>
         </div>
       </nav>
 

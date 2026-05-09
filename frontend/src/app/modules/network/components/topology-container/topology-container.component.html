@@ -1,0 +1,147 @@
+<!-- Main Card Container -->
+<mat-card class="topology-container-card">
+    <!-- Header Section -->
+    <mat-card-header class="topology-header">
+        <mat-card-title class="topology-title">
+            <mat-icon>hub</mat-icon>
+            <span>Network Topology</span>
+        </mat-card-title>
+        <mat-card-subtitle *ngIf="nodeCount > 0">
+            {{ nodeCount }} nodes in topology
+        </mat-card-subtitle>
+    </mat-card-header>
+
+    <!-- Toolbar Section -->
+    <div class="topology-toolbar">
+        <!-- Search Bar -->
+        <div class="toolbar-section search-section">
+            <mat-form-field appearance="outline">
+                <mat-icon matPrefix>search</mat-icon>
+                <input
+                    matInput
+                    type="text"
+                    placeholder="Search by name or ID..."
+                    [(ngModel)]="searchQuery"
+                    (input)="onSearchInput()"
+                />
+                <button
+                    *ngIf="searchQuery"
+                    matSuffix
+                    mat-icon-button
+                    aria-label="Clear search"
+                    (click)="clearFilters()"
+                >
+                    <mat-icon>close</mat-icon>
+                </button>
+            </mat-form-field>
+        </div>
+
+        <!-- Filter Chips -->
+        <div class="toolbar-section filter-section">
+            <mat-chip-set class="filter-chips">
+                <mat-chip
+                    [selected]="filterType === 'all'"
+                    (click)="filterType = 'all'"
+                    class="filter-chip"
+                >
+                    All Types
+                </mat-chip>
+                <mat-chip
+                    [selected]="filterType === 'virtual_network'"
+                    (click)="filterType = 'virtual_network'"
+                    class="filter-chip"
+                >
+                    <mat-icon>dns</mat-icon>
+                    VNets
+                </mat-chip>
+                <mat-chip
+                    [selected]="filterType === 'subnet'"
+                    (click)="filterType = 'subnet'"
+                    class="filter-chip"
+                >
+                    <mat-icon>account_tree</mat-icon>
+                    Subnets
+                </mat-chip>
+                <mat-chip
+                    [selected]="filterType === 'nsg'"
+                    (click)="filterType = 'nsg'"
+                    class="filter-chip"
+                >
+                    <mat-icon>security</mat-icon>
+                    NSGs
+                </mat-chip>
+                <mat-chip
+                    [selected]="filterType === 'external_device'"
+                    (click)="filterType = 'external_device'"
+                    class="filter-chip"
+                >
+                    <mat-icon>router</mat-icon>
+                    Devices
+                </mat-chip>
+            </mat-chip-set>
+        </div>
+
+        <!-- View Toggle Buttons -->
+        <div class="toolbar-section toggle-section">
+            <button
+                mat-raised-button
+                [color]="viewMode === 'tree' ? 'primary' : 'accent'"
+                (click)="switchView('tree')"
+                class="view-toggle-btn"
+                [ngClass]="{ active: viewMode === 'tree' }"
+            >
+                <mat-icon>view_list</mat-icon>
+                <span>Tree View</span>
+            </button>
+            <button
+                mat-raised-button
+                [color]="viewMode === 'graph' ? 'primary' : 'accent'"
+                (click)="switchView('graph')"
+                class="view-toggle-btn"
+                [ngClass]="{ active: viewMode === 'graph' }"
+            >
+                <mat-icon>graphic_design</mat-icon>
+                <span>Graph View</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Error Bar -->
+    <div *ngIf="error" class="error-bar">
+        <mat-icon>error</mat-icon>
+        <span>{{ error }}</span>
+        <button mat-icon-button color="warn" (click)="retry()" aria-label="Retry">
+            <mat-icon>refresh</mat-icon>
+        </button>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div *ngIf="isLoading" class="loading-container">
+        <mat-spinner diameter="48"></mat-spinner>
+        <p>Loading topology...</p>
+    </div>
+
+    <!-- Content Area -->
+    <div *ngIf="!isLoading && !error" class="topology-content">
+        <!-- Tree View -->
+        <ng-container *ngIf="viewMode === 'tree'">
+            <app-network-tree
+                [nodes]="topologyData?.nodes || []"
+                [edges]="topologyData?.edges || []"
+                [searchQuery]="searchQuery"
+                (nodeAction)="onNodeAction($event)"
+            />
+        </ng-container>
+
+        <!-- Graph View -->
+        <ng-container *ngIf="viewMode === 'graph'">
+            <app-network-graph
+                [nodes]="topologyData?.nodes || []"
+                [edges]="topologyData?.edges || []"
+                [searchQuery]="searchQuery"
+                (nodeSelected)="onNodeSelected($event)"
+                (nodeDblClick)="onNodeDblClick($event)"
+            />
+        </ng-container>
+    </div>
+</mat-card>

@@ -1,0 +1,23 @@
+<!-- Create Subnet Dialog Template -->
+<h2 mat-dialog-title>Create Subnet</h2>
+<form (ngSubmit)="onSubmit()">
+    <mat-dialog-content>
+        <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Subnet Name</mat-label>
+            <input matInput [(ngModel)]="subnetName" name="subnetName" required placeholder="e.g., subnet-web" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Address Prefix</mat-label>
+            <input matInput [(ngModel)]="addressPrefix" name="addressPrefix" required placeholder="e.g., 10.0.1.0/24" />
+        </mat-form-field>
+        <p *ngIf="vnet" class="dialog-info">
+            Creating subnet in: <strong>{{ vnet.name }}</strong>
+        </p>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+        <button mat-button (click)="onCancel()">Cancel</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="!subnetName || !addressPrefix">
+            Create
+        </button>
+    </mat-dialog-actions>
+</form>

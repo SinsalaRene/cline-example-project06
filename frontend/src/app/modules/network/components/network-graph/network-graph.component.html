@@ -1,0 +1,56 @@
+<!-- Network Graph Component Template
+     SVG-based interactive graph with zoom controls and detail panel. -->
+<div class="graph-container">
+    <!-- Toolbar -->
+    <div class="graph-toolbar" fxLayout="row" fxLayoutGap="8px" fxLayoutAlign="space-between center">
+        <div fxLayout="row" fxLayoutGap="8px">
+            <button mat-icon-button (click)="zoomIn()" matTooltip="Zoom In">
+                <mat-icon>zoom_in</mat-icon>
+            </button>
+            <button mat-icon-button (click)="zoomOut()" matTooltip="Zoom Out">
+                <mat-icon>zoom_out</mat-icon>
+            </button>
+            <button mat-icon-button (click)="resetView()" matTooltip="Reset View">
+                <mat-icon>restart_alt</mat-icon>
+            </button>
+            <button mat-icon-button (click)="toggleLegend()" matTooltip="Toggle Legend">
+                <mat-icon>format_shape</mat-icon>
+            </button>
+        </div>
+
+        <!-- Zoom level indicator -->
+        <mat-chip color="primary" variant="outlined">
+            {{ (zoomScale * 100 | number: '1.0-0') }}%
+        </mat-chip>
+    </div>
+
+    <!-- SVG Container -->
+    <div class="svg-wrapper" #svgContainer [class.zoomed]="zoomScale !== 1">
+        <!-- The SVG element is created programmatically in ngAfterViewInit -->
+    </div>
+
+    <!-- Detail Panel for selected node -->
+    <div *ngIf="selectedNodeId" class="detail-panel">
+        <mat-card>
+            <mat-card-header>
+                <mat-card-title>Node Details</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+                <p>Selected node ID: {{ selectedNodeId }}</p>
+                <button mat-button (click)="selectedNodeId = null; _render()">Close</button>
+            </mat-card-content>
+        </mat-card>
+    </div>
+
+    <!-- Context Menu -->
+    <div *ngIf="showContextMenu" class="context-menu" [style.left.px]="contextMenuX" [style.top.px]="contextMenuY">
+        <button mat-menu-item (click)="onContextMenuAction('edit')">
+            <mat-icon>edit</mat-icon>
+            <span>Edit</span>
+        </button>
+        <button mat-menu-item (click)="onContextMenuAction('delete')" color="warn">
+            <mat-icon>delete</mat-icon>
+            <span>Delete</span>
+        </button>
+    </div>
+</div>
