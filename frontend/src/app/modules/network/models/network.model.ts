@@ -404,3 +404,134 @@ export const SYNC_STATUS_LABELS: Record<SyncStatus, string> = {
     [SyncStatus.APPLIED]: 'Applied',
     [SyncStatus.FAILED]: 'Failed'
 };
+
+// ============================================================================
+// Impact Analysis Types
+// ============================================================================
+
+/**
+ * Change type for an NSG rule during impact analysis.
+ *
+ * - 'added': Rule exists in new configuration but not in old
+ * - 'removed': Rule existed in old configuration but not in new
+ * - 'modified': Rule exists in both but with different properties
+ * - 'unchanged': Rule is identical in both configurations
+ */
+export enum RuleChangeType {
+    ADDED = 'added',
+    REMOVED = 'removed',
+    MODIFIED = 'modified',
+    UNCHANGED = 'unchanged'
+}
+
+/**
+ * Result of comparing a single NSG rule between before and after states.
+ *
+ * Used by the impact analysis algorithm to determine what changed
+ * when NSG rules are modified.
+ */
+export interface RuleComparison {
+    /** The rule from the old (before) configuration. */
+    oldRule?: NSGRule;
+    /** The rule from the new (after) configuration. */
+    newRule?: NSGRule;
+    /** The type of change detected. */
+    changeType: RuleChangeType;
+    /** List of specific fields that differ between old and new. */
+    changedFields?: string[];
+}
+
+/**
+ * Represents a subnet that is affected by NSG rule changes.
+ *
+ * Contains details about which specific rules impact this subnet
+ * and in what way (newly allowed, newly denied, or unchanged).
+ */
+export interface AffectedSubnet {
+    /** The subnet entity being affected. */
+    subnet: Subnet;
+    /** NSG associated with this subnet. */
+    nsg?: NetworkSecurityGroup;
+    /** Rules that newly allow traffic to this subnet after changes. */
+    newlyAllowedRules?: RuleComparison[];
+    /** Rules that newly deny traffic to this subnet after changes. */
+    newlyDeniedRules?: RuleComparison[];
+    /** Rules that affect this subnet but had no change. */
+    unchangedAffectingRules?: RuleComparison[];
+}
+
+/**
+ * Represents an external device that becomes reachable after NSG rule changes.
+ *
+ * Used to show which external devices gain or lose network access
+ * based on the proposed NSG rule modifications.
+ */
+export interface ReachableDevice {
+    /** The external network device entity. */
+    device: ExternalNetworkDevice;
+    /** Whether the device GAINS access (true) or LOSES access (false) after changes. */
+    gainsAccess: boolean;
+    /** The rules responsible for the new/removed access. */
+    responsibleRules?: RuleComparison[];
+}
+
+/**
+ * Complete result of an NSG impact analysis.
+ *
+ * Aggregates rule comparisons, affected subnets, and reachable devices
+ * into a single result structure for the impact analysis dialog.
+ */
+export interface ImpactResult {
+    /** The NSG ID being analyzed. */
+    nsgId: string;
+    /** Comparison of each rule between old and new configurations. */
+    ruleComparisons: RuleComparison[];
+    /** Subnets affected by the proposed rule changes. */
+    affectedSubnets: AffectedSubnet[];
+    /** External devices that gain or lose access after changes. */
+    reachableDevices: ReachableDevice[];
+    /** Whether any rules were removed that previously allowed access. */
+    hasRemovedAccess: boolean;
+    /** Summary count of added rules. */
+    addedCount: number;
+    /** Summary count of removed rules. */
+    removedCount: number;
+    /** Summary count of modified rules. */
+    modifiedCount: number;
+    /** Summary count of unchanged rules. */
+    unchangedCount: number;
+}
+
+/**
+ * Summary of impact for a quick-glance display.
+ *
+ * Used by the inline impact summary below the NSG rule editor table.
+ */
+export interface ImpactSummary {
+    /** Total number of rules affected. */
+    totalAffected: number;
+    /** Number of rules being added. */
+    addedCount: number;
+    /** Number of rules being removed. */
+    removedCount: number;
+    /** Number of rules being modified. */
+    modifiedCount: number;
+    /** Whether the changes would remove existing access (warning condition). */
+    hasRemovedAccess: boolean;
+    /** List of devices that would lose access. */
+    blockedDevices: ReachableDevice[];
+}
+
+/**
+ * Input data passed to the impact analysis dialog.
+ */
+export interface ImpactAnalysisData {
+    /** The NSG ID being analyzed. */
+    nsgId: string;
+    /** The NSG name for display. */
+    nsgName?: string;
+    /** NSG rules before the proposed changes. */
+    oldRules: NSGRule[];
+    /** NSG rules after the proposed changes (not yet saved). */
+    newRules: NSGRule[];
+}

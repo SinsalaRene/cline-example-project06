@@ -39,15 +39,20 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { CdkDrag, CdkDragDrop, CdkDropList, CdkDragHandle } from '@angular/cdk/drag-drop';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatChipsModule } from '@angular/material/chips';
 import { Subject, takeUntil } from 'rxjs';
 import { NetworkService } from '../../services/network.service';
-import { NSGRule, Direction, Access, Protocol, CreateNsgRuleRequest } from '../../models/network.model';
+import { NSGRule, Direction, Access, Protocol, CreateNsgRuleRequest, ImpactResult, RuleChangeType, Subnet, ExternalNetworkDevice, NetworkConnection } from '../../models/network.model';
 import { NsgRuleFormDialogComponent, NsgRuleFormData } from '../nsg-rule-form-dialog/nsg-rule-form-dialog.component';
 import { ConfirmationDialogComponent } from '../../../workloads/components/confirmation-dialog.component';
+import { ImpactAnalysisDialogComponent } from '../impact-analysis/impact-analysis-dialog.component';
+import { ImpactAnalyzerService } from '../../services/impact-analyzer.service';
 
 /**
  * Display type for NSG rule table rows.
@@ -86,6 +91,8 @@ export type NSGRuleDisplay = NSGRule & {
     MatButtonModule,
     MatIconModule,
     MatDialogModule,
+    MatExpansionModule,
+    MatChipsModule,
     CdkDrag,
     CdkDropList,
     CdkDragHandle,
@@ -98,18 +105,99 @@ export type NSGRuleDisplay = NSGRule & {
       <!-- Header -->
       <div class="editor-header">
         <h3>NSG Rules</h3>
-        <button
-          mat-raised-button
-          color="primary"
-          (click)="openAddRuleDialog()"
-          [disabled]="isLoading"
-        >
-          <mat-icon>add</mat-icon>
-          Add Rule
-        </button>
+        <div class="header-actions">
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="openAddRuleDialog()"
+            [disabled]="isLoading"
+          >
+            <mat-icon>add</mat-icon>
+            Add Rule
+          </button>
+          <button
+            mat-stroked-button
+            color="accent"
+            (click)="reviewImpact()"
+            [disabled]="isLoading || _displayedRules.length === 0"
+            *ngIf="!showImpactSummary"
+          >
+            <mat-icon>assessment</mat-icon>
+            Review Impact
+          </button>
+        </div>
       </div>
 
       <mat-divider />
+
+      <!-- Impact Summary (collapsible) -->
+      <mat-expansion-panel *ngIf="showImpactSummary && impactSummary && _displayedRules.length > 0" class="impact-summary-panel">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon color="accent">assessment</mat-icon>
+            Impact Analysis Summary
+          </mat-panel-title>
+          <mat-panel-description color="accent">
+            {{ impactSummary.addedCount }} new · {{ impactSummary.modifiedCount }} modified · {{ impactSummary.removedCount }} removed
+            <button mat-icon-button matExpansionPanelIndicator aria-label="Close impact summary">
+              <mat-icon>close</mat-icon>
+            </button>
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+
+        <div class="impact-summary-content">
+          <!-- Warning Banner -->
+          <div class="warning-banner" *ngIf="impactSummary.hasRemovedAccess">
+            <mat-icon color="warn">warning</mat-icon>
+            <span>Warning: Changes remove existing access</span>
+          </div>
+
+          <!-- Summary Chips -->
+          <div class="impact-chips">
+            <mat-chip-listbox>
+              <mat-chip color="accent" selected>{{ impactSummary.addedCount }} New</mat-chip>
+              <mat-chip color="warn" selected>{{ impactSummary.removedCount }} Removed</mat-chip>
+              <mat-chip color="primary" selected>{{ impactSummary.modifiedCount }} Modified</mat-chip>
+              <mat-chip>{{ impactSummary.unchangedCount }} Unchanged</mat-chip>
+            </mat-chip-listbox>
+          </div>
+
+          <!-- Affected Subnets -->
+          <div class="impact-section" *ngIf="impactSummary.affectedSubnets?.length">
+            <h4>Affected Subnets</h4>
+            <div class="subnet-list">
+              <div class="subnet-item" *ngFor="let subnet of impactSummary.affectedSubnets">
+                <span class="subnet-name">{{ subnet.subnetName }}</span>
+                <span class="subnet-cidr">{{ subnet.subnetCidr }}</span>
+                <span class="rule-ref">Rules: {{ subnet.affectedRuleNames?.join(', ') || 'N/A' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Newly Reachable Devices -->
+          <div class="impact-section" *ngIf="impactSummary.reachableDevices?.length">
+            <h4>Newly Reachable External Devices</h4>
+            <div class="device-list">
+              <div class="device-item" *ngFor="let device of impactSummary.reachableDevices">
+                <span class="device-name">{{ device.deviceName }}</span>
+                <span class="device-ip">{{ device.deviceIp }}</span>
+                <span *ngIf="device.gainsAccess" class="gain-badge">Gains Access</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="impact-actions">
+            <button mat-raised-button color="primary" (click)="openImpactDialog()">
+              <mat-icon>visibility</mat-icon>
+              Full Impact Analysis
+            </button>
+            <button mat-button (click)="dismissImpactSummary()">
+              Dismiss
+            </button>
+          </div>
+        </div>
+      </mat-expansion-panel>
 
       <!-- Loading spinner -->
       <div class="loading-container" *ngIf="isLoading">
@@ -365,6 +453,111 @@ export type NSGRuleDisplay = NSGRule & {
       margin: 0;
       font-size: 14px;
     }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .impact-summary-panel {
+      margin: 16px;
+    }
+
+    .impact-summary-content {
+      padding: 8px 0;
+    }
+
+    .warning-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: rgba(244, 67, 54, 0.1);
+      border: 1px solid rgba(244, 67, 54, 0.3);
+      border-radius: 4px;
+      margin-bottom: 16px;
+      color: #c62828;
+    }
+
+    .warning-banner mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    .impact-chips {
+      margin-bottom: 16px;
+    }
+
+    .impact-section {
+      margin-bottom: 16px;
+    }
+
+    .impact-section h4 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      font-weight: 500;
+      color: #666;
+    }
+
+    .subnet-list,
+    .device-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .subnet-item,
+    .device-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: #f5f5f5;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    .subnet-name {
+      font-weight: 500;
+    }
+
+    .subnet-cidr {
+      color: #666;
+      font-size: 12px;
+    }
+
+    .rule-ref {
+      color: #999;
+      font-size: 11px;
+      font-style: italic;
+    }
+
+    .device-name {
+      font-weight: 500;
+    }
+
+    .device-ip {
+      color: #666;
+      font-size: 12px;
+      font-family: monospace;
+    }
+
+    .gain-badge {
+      background: #4caf50;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .impact-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -426,15 +619,26 @@ export class NsgRuleEditorComponent implements OnInit, OnDestroy {
   /** Subject to signal component destruction. */
   private destroy$ = new Subject<void>();
 
+  /** Whether to show the impact summary panel. */
+  showImpactSummary = false;
+
+  /** The computed impact summary for the current rules. */
+  impactSummary: ImpactResult | null = null;
+
+  /** Impact analyzer service for computing rule change impacts. */
+  private impactAnalyzer = new ImpactAnalyzerService();
+
   /**
    * Creates a new NsgRuleEditorComponent.
    *
    * @param networkService - The network service for API calls.
    * @param dialog - The Angular Material dialog service.
+   * @param snackBar - The Material snack bar service.
    */
   constructor(
     private networkService: NetworkService,
-    public dialog: MatDialog
+    public dialog: MatDialog,
+    private snackBar: MatSnackBar
   ) { }
 
   /**
@@ -692,5 +896,71 @@ export class NsgRuleEditorComponent implements OnInit, OnDestroy {
       [Access.DENY]: 'Deny',
     };
     return labels[access] || access;
+  }
+
+  // ==========================================================================
+  // Impact Analysis Integration
+  // ==========================================================================
+
+  /**
+   * Reviews the impact of current rules by opening the full impact analysis dialog.
+   *
+   * This method computes the impact of the current rules by comparing them against
+   * a hypothetical "empty" rule set (no rules = all denied by default in Azure NSG).
+   * It then opens the ImpactAnalysisDialog with the comparison results.
+   */
+  reviewImpact(): void {
+    if (!this.nsgId || this._displayedRules.length === 0) {
+      this.snackBar.open('Add at least one rule before reviewing impact', 'Close', { duration: 3000 });
+      return;
+    }
+
+    // Compute impact: all current rules are "new" (compared against empty set)
+    const emptyRules: NSGRule[] = [];
+    const currentRules: NSGRule[] = this._displayedRules;
+
+    const impact = this.impactAnalyzer.analyzeNsgImpact(
+      this.nsgId,
+      emptyRules,
+      currentRules
+    );
+
+    // Show inline summary
+    this.impactSummary = impact;
+    this.showImpactSummary = true;
+  }
+
+  /**
+   * Opens the full impact analysis dialog with detailed before/after comparison.
+   *
+   * This is useful when editing a specific rule and wanting to see the full impact
+   * of that single change.
+   */
+  openImpactDialog(): void {
+    if (!this.impactSummary) {
+      this.snackBar.open('No impact data available', 'Close', { duration: 3000 });
+      return;
+    }
+
+    const dialogRef = this.dialog.open(ImpactAnalysisDialogComponent, {
+      width: '1200px',
+      data: {
+        nsgId: this.nsgId,
+        impactResult: this.impactSummary,
+        title: 'Full Impact Analysis',
+      },
+    });
+
+    dialogRef.afterClosed().subscribe(() => {
+      // Could apply changes here if user confirmed
+    });
+  }
+
+  /**
+   * Dismisses the impact summary panel.
+   */
+  dismissImpactSummary(): void {
+    this.showImpactSummary = false;
+    this.impactSummary = null;
   }
 }

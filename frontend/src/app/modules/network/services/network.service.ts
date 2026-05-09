@@ -65,6 +65,8 @@ import {
     CreateExternalDeviceRequest,
     CreateConnectionRequest,
     ConnectionFilters,
+    ImpactResult,
+    ImpactSummary,
     NODE_STYLES,
     NODE_TYPE_LABELS
 } from '../models/network.model';
@@ -621,6 +623,52 @@ export class NetworkService {
      */
     getNodeStyle(type: NodeType): { fillColor: string; strokeColor: string; shape: string; width: number; height: number } {
         return NODE_STYLES[type] || { fillColor: '#9e9e9e', strokeColor: '#616161', shape: 'rect', width: 80, height: 40 };
+    }
+
+    /**
+     * Get network connections for a specific external device.
+     *
+     * Fetches all connections where the given device is either the source
+     * or destination.
+     *
+     * @param deviceId - The external device ID.
+     * @returns Observable of NetworkConnection array.
+     */
+    getConnectionsByDevice(deviceId: string): Observable<NetworkConnection[]> {
+        return this.http.get<any>(`${this.baseUrl}/connections?deviceId=${deviceId}`).pipe(
+            map(response => response.connections || response)
+        );
+    }
+
+    /**
+     * Analyze the impact of NSG rule changes.
+     *
+     * Sends proposed rule changes to the backend for analysis.
+     * The backend computes affected subnets and reachable devices.
+     *
+     * @param nsgId - The NSG ID being modified.
+     * @param rules - The proposed new set of NSG rules.
+     * @returns Observable of ImpactResult.
+     */
+    analyzeImpact(nsgId: string, rules: NSGRule[]): Observable<ImpactResult> {
+        return this.http.post<any>(`${this.baseUrl}/nsgs/${nsgId}/impact-analysis`, { rules }).pipe(
+            map(response => response.impact || response)
+        );
+    }
+
+    /**
+     * Get a summary of the impact of current NSG rules.
+     *
+     * Retrieves the current impact summary without needing to specify
+     * new rules. Useful for showing the current state of an NSG.
+     *
+     * @param nsgId - The NSG ID.
+     * @returns Observable of ImpactSummary.
+     */
+    getImpactSummary(nsgId: string): Observable<ImpactSummary> {
+        return this.http.get<any>(`${this.baseUrl}/nsgs/${nsgId}/impact-summary`).pipe(
+            map(response => response.summary || response)
+        );
     }
 
     /**
