@@ -25,15 +25,28 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 
+// Shared Components
+import { LoadingSpinnerComponent } from './components/loading-spinner/loading-spinner.component';
+import { ErrorNotificationComponent, ErrorNotificationService } from './components/error-notification/error-notification.component';
+import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dialog.component';
+
+// Shared Directives
+import { LoadingDirective } from './directives/loading.directive';
+
 /**
  * SharedModule
  *
  * Provides a centralized place for common Angular Material modules,
- * Angular forms, and common directives/pipes that are shared across
- * multiple feature modules.
+ * Angular forms, shared components, directives, and services.
  *
- * This module exports commonly used modules so that feature modules
- * can import them once here instead of importing each module individually.
+ * This module exports:
+ * - Angular CommonModule
+ * - Angular Forms (ReactiveFormsModule, FormsModule)
+ * - Angular Material Modules (table, form, buttons, dialogs, etc.)
+ * - LoadingSpinnerComponent
+ * - ErrorNotificationComponent
+ * - ConfirmDialogComponent
+ * - LoadingDirective
  *
  * Usage: Import SharedModule in any feature module that needs these shared dependencies.
  *
@@ -48,8 +61,7 @@ import { MatSnackBarModule } from '@angular/material/snack-bar';
  */
 @NgModule({
     declarations: [
-        // Custom pipes will be declared here as they are created
-        // e.g., CustomPipe, FormatDatePipe, etc.
+        // No custom directives/pipes declared here - all are standalone
     ],
     imports: [
         // Angular CommonModule
@@ -102,6 +114,14 @@ import { MatSnackBarModule } from '@angular/material/snack-bar';
 
         // Chips
         MatChipsModule,
+
+        // Shared Components (standalone)
+        LoadingSpinnerComponent,
+        ErrorNotificationComponent,
+        ConfirmDialogComponent,
+
+        // Shared Directives (standalone)
+        LoadingDirective,
     ],
     exports: [
         // Re-export all imports so consuming modules can use them directly
@@ -131,6 +151,14 @@ import { MatSnackBarModule } from '@angular/material/snack-bar';
         MatMenuModule,
         MatTooltipModule,
         MatSnackBarModule,
+
+        // Shared Components
+        LoadingSpinnerComponent,
+        ErrorNotificationComponent,
+        ConfirmDialogComponent,
+
+        // Shared Directives
+        LoadingDirective,
     ],
 })
 export class SharedModule { }

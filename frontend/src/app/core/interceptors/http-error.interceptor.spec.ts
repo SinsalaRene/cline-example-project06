@@ -5,6 +5,7 @@ import { Observable, throwError, of } from 'rxjs';
 import { Router } from '@angular/router';
 import { HttpErrorInterceptor, HttpErrorInterceptorFactory } from './http-error.interceptor';
 import { ErrorHandlerService } from '../services/error-handler.service';
+import { ErrorNotificationService } from '../../shared/components/error-notification/error-notification.component';
 
 describe('HttpErrorInterceptor', () => {
     let interceptor: HttpErrorInterceptor;
@@ -326,9 +327,15 @@ describe('HttpErrorInterceptor', () => {
 });
 
 describe('HttpErrorInterceptorFactory', () => {
-    it('should create interceptor with provided error handler', () => {
-        const errorHandler = new ErrorHandlerService({ navigate: () => { } } as any);
-        const factory = HttpErrorInterceptorFactory(errorHandler);
+    it('should create interceptor with provided error handler and notification service', () => {
+        const errorHandler = {
+            handleAuthError: jest.fn(),
+            handleApiError: jest.fn(),
+            trackError: jest.fn(),
+        } as unknown as ErrorHandlerService;
+        const notificationService = new ErrorNotificationService();
+
+        const factory = HttpErrorInterceptorFactory(errorHandler, notificationService);
 
         expect(factory).toBeDefined();
         expect(typeof factory).toBe('function');

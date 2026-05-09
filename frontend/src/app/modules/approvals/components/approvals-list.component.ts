@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, signal } from '@angular/core';
+import { Component, inject, OnInit, ViewChild, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
 import { MatPaginatorModule, MatPaginator } from '@angular/material/paginator';
@@ -11,6 +11,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatCardModule } from '@angular/material/card';
 import { ApprovalsService } from '../services/approvals.service';
+import { ErrorHandlerService } from '../../../../core/services/error-handler.service';
+import { ErrorNotificationService } from '../../../../shared/components/error-notification/error-notification.component';
+
 
 interface Approval {
     id: string;
@@ -232,6 +235,9 @@ export class ApprovalsListComponent implements OnInit {
     dataSource = new MatTableDataSource<Approval>();
     isLoading = signal(true);
 
+    private errorHandler = inject(ErrorHandlerService);
+    private errorNotification = inject(ErrorNotificationService);
+
     constructor(private approvalsService: ApprovalsService) { }
 
     ngOnInit(): void {
@@ -248,7 +254,8 @@ export class ApprovalsListComponent implements OnInit {
                 this.isLoading.set(false);
             },
             error: (error: any) => {
-                console.error('Error loading approvals:', error);
+                this.errorHandler.handleApiError(error, { url: '/api/approvals', method: 'GET' });
+                this.errorNotification.showError(this.errorHandler.getErrorMessage(error));
                 this.isLoading.set(false);
             }
         });
